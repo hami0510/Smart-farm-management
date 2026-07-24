@@ -2,8 +2,8 @@
 """
 🏠 대시보드 화면
 --------------------------------------------------
-좌측(좁게): 날씨 요약 + 오늘의 요약(탭)
-우측(넓게): 일정 캘린더 (클릭으로 추가/삭제)
+1행: 실시간 날씨 (한 줄, 컴팩트)
+2행: 일정 캘린더(넓게, 좌) + 오늘의 요약(좁게, 우 상단 3줄)
 """
 
 from datetime import datetime, timedelta
@@ -15,8 +15,6 @@ from common import (
     get_weather,
     calc_dday,
     importance_badge,
-    SCHEDULE_CATEGORIES,
-    IMPORTANCE_LEVELS,
 )
 
 try:
@@ -24,6 +22,8 @@ try:
     CALENDAR_AVAILABLE = True
 except ImportError:
     CALENDAR_AVAILABLE = False
+
+from common import SCHEDULE_CATEGORIES, IMPORTANCE_LEVELS
 
 st.title("🌾 스마트팜 종합 농가 관리 시스템")
 st.caption(
@@ -42,52 +42,54 @@ if weather["wind_speed"] >= 10:
 if any(k in weather["description"] for k in ["비", "폭우", "소나기"]):
     st.warning(f"🌧️ 강우 예보가 있습니다: {weather['description']} — 배수로를 미리 점검하세요.")
 
+# ============================================================
+# 1행: 실시간 날씨 (한 줄)
+# ============================================================
+st.markdown("**☀️ 실시간 날씨**")
+if weather["is_mock"]:
+    st.caption("⚠️ " + ("가상 데이터 표시 중" if not weather["error"] else f"연동 실패: {weather['error']}"))
+
+wc1, wc2, wc3, wc4 = st.columns(4)
+wc1.metric("🌡️ 기온", f"{weather['temp']} ℃")
+wc2.metric("💧 습도", f"{weather['humidity']} %")
+wc3.metric("💨 풍속", f"{weather['wind_speed']} m/s")
+wc4.metric("☁️ 날씨", weather["description"])
+
+st.divider()
+
 farm_logs = db.get_farm_logs()
 schedules = db.get_schedules()
 documents = db.get_documents()
 
-left_col, right_col = st.columns([1, 1.6], gap="large")
+# ============================================================
+# 2행: 캘린더(좌, 넓게) + 오늘의 요약(우, 좁게 - 상단 3줄)
+# ============================================================
+cal_col, summary_col = st.columns([2.3, 1], gap="large")
 
-with left_col:
-    with st.container(border=True):
-        st.markdown("**☀️ 실시간 날씨**")
-        if weather["is_mock"]:
-            st.caption("⚠️ " + ("가상 데이터 표시 중" if not weather["error"] else f"연동 실패: {weather['error']}"))
-        wc1, wc2 = st.columns(2)
-        wc1.metric("기온", f"{weather['temp']} ℃")
-        wc2.metric("습도", f"{weather['humidity']} %")
-        wc3, wc4 = st.columns(2)
-        wc3.metric("풍속", f"{weather['wind_speed']} m/s")
-        wc4.metric("날씨", weather["description"])
-
+with summary_col:
     st.markdown("**📌 오늘의 요약**")
-    tab_sched, tab_log, tab_doc = st.tabs(["📅 일정", "📝 일지", "📁 자료"])
+    upcoming = sorted([s for s in schedules if not s["done"]], key=lambda x: x["start_date"])
+    if upcoming:
+        s = upcoming[0]
+        st.caption(f"📅 {importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
+    else:
+        st.caption("📅 예정된 일정이 없습니다.")
 
-    with tab_sched:
-        upcoming = sorted([s for s in schedules if not s["done"]], key=lambda x: x["start_date"])[:5]
-        if upcoming:
-            for s in upcoming:
-                st.write(f"- {importance_badge(s['importance'])} **{s['title']}** ({calc_dday(s['start_date'])})")
-        else:
-            st.caption("등록된 일정이 없습니다.")
+    recent_logs = sorted(farm_logs, key=lambda x: x["log_date"], reverse=True)
+    if recent_logs:
+        log = recent_logs[0]
+        st.caption(f"📝 {log['log_date']} · [{log['work_type']}] {log['zone']}")
+    else:
+        st.caption("📝 작성된 영농일지가 없습니다.")
 
-    with tab_log:
-        recent_logs = sorted(farm_logs, key=lambda x: x["log_date"], reverse=True)[:5]
-        if recent_logs:
-            for log in recent_logs:
-                st.write(f"- {log['log_date']} · [{log['work_type']}] {log['zone']}")
-        else:
-            st.caption("작성된 영농일지가 없습니다.")
+    recent_docs = sorted(documents, key=lambda x: x["upload_date"], reverse=True)
+    if recent_docs:
+        d = recent_docs[0]
+        st.caption(f"📁 {d['filename']} · [{d['category']}]")
+    else:
+        st.caption("📁 업로드된 자료가 없습니다.")
 
-    with tab_doc:
-        recent_docs = sorted(documents, key=lambda x: x["upload_date"], reverse=True)[:5]
-        if recent_docs:
-            for d in recent_docs:
-                st.write(f"- 📄 {d['filename']} · [{d['category']}]")
-        else:
-            st.caption("업로드된 자료가 없습니다.")
-
-with right_col:
+with cal_col:
     st.markdown("**🗓️ 일정 캘린더**")
 
     if not CALENDAR_AVAILABLE:
