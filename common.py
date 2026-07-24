@@ -6,7 +6,7 @@ app.py와 views/*.py 여러 화면에서 공통으로 쓰는 것들을 모아둔
 - 상수 (작업유형, 카테고리 등)
 - 세션 상태 초기화 (농장 위치, API 키)
 - 날씨 조회 함수 (실시간 + 목업)
-- 주소 -> 위경도 변환 (지오코딩)
+- 주소 -> 위경도 변환 (네이버 지오코딩 우선, 없으면 OpenWeatherMap 대체)
 - 사이드바 공통 UI (위치 설정)
 - 자잘한 유틸 함수 (D-Day 계산 등)
 """
@@ -44,12 +44,20 @@ def init_common_session_state() -> None:
             "name": "서울 (기본값)",
         }
     if "api_key" not in st.session_state:
-        # Streamlit Cloud의 Secrets에 등록된 키를 자동으로 불러옴
-        # (로컬 실행 시 secrets가 없어도 에러 없이 빈 값으로 처리됨)
         try:
             st.session_state.api_key = st.secrets.get("OPENWEATHER_API_KEY", "")
         except Exception:
             st.session_state.api_key = ""
+    if "naver_client_id" not in st.session_state:
+        try:
+            st.session_state.naver_client_id = st.secrets.get("NAVER_CLIENT_ID", "")
+        except Exception:
+            st.session_state.naver_client_id = ""
+    if "naver_client_secret" not in st.session_state:
+        try:
+            st.session_state.naver_client_secret = st.secrets.get("NAVER_CLIENT_SECRET", "")
+        except Exception:
+            st.session_state.naver_client_secret = ""
 
 
 # ============================================================
@@ -92,15 +100,36 @@ def get_weather(lat: float, lon: float, api_key: str) -> dict:
 
 
 # ============================================================
-# 주소 -> 위경도 변환 (OpenWeatherMap Geocoding API 사용, 같은 키 재사용)
+# 주소 -> 위경도 변환
+# 1) 네이버 클라우드 플랫폼 Geocoding API (정밀, 키 등록 시 우선 사용)
+# 2) 네이버 키가 없으면 OpenWeatherMap Geocoding으로 자동 대체
 # ============================================================
-def geocode_address(address: str, api_key: str) -> dict | None:
-    """
-    주소/지역명을 위경도로 변환한다.
-    도시/군/구 단위 이름에서 가장 잘 동작한다 (예: "전북 김제시", "제주 서귀포시").
-    상세 도로명 주소는 정확도가 떨어질 수 있음.
-    """
-    if not api_key or not address:
+def geocode_address_naver(address: str, client_id: str, client_secret: str) -> dict | None:
+    """네이버 클라우드 플랫폼 Geocoding API. 도로명 주소까지 정밀하게 인식."""
+    if not address or not client_id or not client_secret:
+        return None
+    try:
+        url = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode"
+        headers = {
+            "x-ncp-apigw-api-key-id": client_id,
+            "x-ncp-apigw-api-key": client_secret,
+        }
+        params = {"query": address}
+        resp = requests.get(url, headers=headers, params=params, timeout=6)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("status") != "OK" or not data.get("addresses"):
+            return None
+        r = data["addresses"][0]
+        display_name = r.get("roadAddress") or r.get("jibunAddress") or address
+        return {"lat": float(r["y"]), "lon": float(r["x"]), "name": display_name}
+    except Exception:
+        return None
+
+
+def geocode_address_owm(address: str, api_key: str) -> dict | None:
+    """OpenWeatherMap Geocoding API. 네이버 키가 없을 때의 대체 수단 (시/군/구 단위 검색에 적합)."""
+    if not address or not api_key:
         return None
     try:
         url = "http://api.openweathermap.org/geo/1.0/direct"
@@ -111,10 +140,20 @@ def geocode_address(address: str, api_key: str) -> dict | None:
         if not results:
             return None
         r = results[0]
-        # 지역명이 여러 언어로 섞여 나올 수 있어, 사용자가 입력한 원문 주소를 이름으로 사용
         return {"lat": r["lat"], "lon": r["lon"], "name": address}
     except Exception:
         return None
+
+
+def geocode_address(address: str) -> dict | None:
+    """네이버를 우선 시도하고, 키가 없거나 실패하면 OpenWeatherMap으로 대체."""
+    naver_id = st.session_state.get("naver_client_id", "")
+    naver_secret = st.session_state.get("naver_client_secret", "")
+    if naver_id and naver_secret:
+        result = geocode_address_naver(address, naver_id, naver_secret)
+        if result:
+            return result
+    return geocode_address_owm(address, st.session_state.get("api_key", ""))
 
 
 # ============================================================
@@ -130,19 +169,16 @@ def render_sidebar_settings() -> None:
             # ---- 주소/지역명으로 검색 ----
             address_in = st.text_input(
                 "주소 또는 지역명 검색",
-                placeholder="예: 전북 김제시, 제주 서귀포시 등",
+                placeholder="예: 전북 김제시 만경읍 OO로 123",
             )
             if st.button("🔍 이 주소로 위치 설정", use_container_width=True):
-                if not st.session_state.api_key:
-                    st.error("주소 검색에는 날씨 API 키가 필요합니다. (관리자에게 문의)")
+                result = geocode_address(address_in)
+                if result:
+                    st.session_state.farm_location = result
+                    st.success(f"'{result['name']}' 위치로 설정했습니다.")
+                    st.rerun()
                 else:
-                    result = geocode_address(address_in, st.session_state.api_key)
-                    if result:
-                        st.session_state.farm_location = result
-                        st.success(f"'{address_in}' 위치로 설정했습니다.")
-                        st.rerun()
-                    else:
-                        st.error("주소를 찾을 수 없습니다. 시/군/구 단위로 다시 입력해보세요.")
+                    st.error("주소를 찾을 수 없습니다. 다르게 입력해보세요 (예: 도로명 또는 시/군/구 단위).")
 
             st.divider()
 
