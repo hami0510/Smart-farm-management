@@ -2,8 +2,9 @@
 """
 🏠 대시보드 화면
 --------------------------------------------------
-1) 오늘의 현황 (상단, 레이블+아이콘 배지가 있는 카드 4개)
-2) 일정 캘린더 (하단, 전체 너비) - 날짜별 개별 박스형 미니멀 스타일
+스크롤 없이 한 화면에 들어오도록 세로 여백을 최소화한 컴팩트 레이아웃.
+1) 오늘의 현황 (가로 카드 4개)
+2) 일정 캘린더 (박스형 미니멀 스타일)
 """
 
 from datetime import datetime, timedelta
@@ -23,75 +24,90 @@ IMPORTANCE_COLORS = {"높음": "#FF6B6B", "보통": "#FFA726", "낮음": "#66BB6
 
 
 # ============================================================
-# 공통 스타일 주입
+# 공통 스타일 (컴팩트 레이아웃)
 # ============================================================
 st.markdown(
     """
     <style>
+    /* 페이지 상하 여백 축소 */
+    .block-container { padding-top: 2.2rem !important; padding-bottom: 1rem !important; }
+    /* Streamlit 기본 요소 간 간격 축소 */
+    div[data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
+
+    /* 페이지 헤더 */
+    .page-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+    .page-title { font-size: 1.5em; font-weight: 800; color: #1B5E20; }
+    .page-sub { font-size: 0.78em; color: #888; }
+
     /* 오늘의 현황 카드 */
     .status-card {
-        border-radius: 12px;
-        padding: 12px 14px;
-        margin-bottom: 6px;
-        min-height: 76px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border-radius: 10px;
+        padding: 8px 12px;
+        min-height: 58px;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.06);
     }
     .status-badge {
-        width: 26px; height: 26px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 13px; flex-shrink: 0;
+        width: 20px; height: 20px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 11px; flex-shrink: 0;
     }
-    .status-label {
-        font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;
-        text-transform: uppercase;
-    }
-    .status-value {
-        font-size: 0.92em; color: #2B2B2B; margin-top: 6px; line-height: 1.35;
-    }
+    .status-label { font-size: 0.66em; font-weight: 700; letter-spacing: 0.03em; }
+    .status-value { font-size: 0.84em; color: #2B2B2B; margin-top: 3px; line-height: 1.3; }
 
-    /* 섹션 타이틀 */
-    .section-title-row {
-        display: flex; align-items: center; gap: 8px; margin: 14px 0 4px 0;
+    /* 섹션 타이틀 (컴팩트) */
+    .section-title {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.95em; font-weight: 700; color: #2E7D32;
+        margin: 8px 0 4px 0;
     }
-    .section-title-icon { font-size: 1.25em; }
-    .section-title-text { font-size: 1.12em; font-weight: 700; }
-    .section-title-underline {
-        height: 3px; width: 46px; border-radius: 2px; margin: 4px 0 10px 0;
-    }
-
-    /* 캘린더 범례 */
-    .cal-legend { font-size: 0.82em; color: #666; margin-bottom: 10px; }
+    .cal-legend { font-size: 0.74em; color: #888; }
     .cal-legend .dot {
-        display: inline-block; width: 9px; height: 9px; border-radius: 50%;
-        margin-right: 4px; vertical-align: middle;
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        margin-right: 3px; vertical-align: middle;
     }
 
-    /* ===== 캘린더: 박스형 미니멀 스타일 ===== */
+    /* ===== 캘린더: 박스형 미니멀 + 컴팩트 ===== */
     .fc { border: none !important; box-shadow: none !important; }
     .fc-theme-standard td, .fc-theme-standard th { border: none !important; }
     .fc-scrollgrid { border: none !important; }
+    .fc-scroller { overflow: hidden !important; }
+
+    .fc-header-toolbar { margin-bottom: 0.4em !important; }
+    .fc-toolbar-title { font-weight: 700; color: #222; font-size: 1em !important; }
+    .fc-button {
+        background: #FFFFFF !important;
+        color: #333 !important;
+        border: 1px solid #DDD !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        padding: 3px 10px !important;
+        font-size: 0.85em !important;
+    }
+    .fc-button:hover { background: #F5F5F5 !important; }
 
     .fc-col-header-cell {
         background: transparent !important;
         border: none !important;
         font-weight: 600;
-        color: #555;
-        padding-bottom: 6px !important;
+        color: #666;
+        font-size: 0.8em;
+        padding-bottom: 3px !important;
     }
     .fc-col-header-cell.fc-day-sun { color: #E53935 !important; }
     .fc-col-header-cell.fc-day-sat { color: #1E88E5 !important; }
 
     .fc-daygrid-day-frame {
         border: 1.5px solid #E6E6E6 !important;
-        border-radius: 10px !important;
-        margin: 3px !important;
+        border-radius: 8px !important;
+        margin: 2px !important;
         background: #FFFFFF;
-        min-height: 58px !important;
-        padding: 4px !important;
+        min-height: 42px !important;
+        padding: 2px !important;
     }
     .fc-daygrid-day.fc-day-sun .fc-daygrid-day-number { color: #E53935; }
     .fc-daygrid-day.fc-day-sat .fc-daygrid-day-number { color: #1E88E5; }
-    .fc-daygrid-day-number { font-weight: 500; color: #444; padding: 4px 6px !important; }
+    .fc-daygrid-day-number { font-weight: 500; color: #444; font-size: 0.82em; padding: 2px 5px !important; }
+    .fc-day-other .fc-daygrid-day-frame { background: #FAFAFA; border-color: #F0F0F0 !important; }
 
     .fc-day-today .fc-daygrid-day-frame {
         border: 2px solid #222222 !important;
@@ -99,34 +115,24 @@ st.markdown(
     }
 
     .fc-event {
-        border-radius: 6px !important;
+        border-radius: 5px !important;
         border: none !important;
-        padding: 1px 6px !important;
-        font-size: 0.72em !important;
+        padding: 0px 5px !important;
+        font-size: 0.66em !important;
         font-weight: 500;
+        margin-top: 1px !important;
     }
-
-    .fc-toolbar-title { font-weight: 700; color: #222; font-size: 1.1em !important; }
-    .fc-button {
-        background: #FFFFFF !important;
-        color: #333 !important;
-        border: 1px solid #DDD !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-    }
-    .fc-button:hover { background: #F5F5F5 !important; }
+    .fc-daygrid-more-link { font-size: 0.66em !important; }
 
     @media (max-width: 640px) {
-        .section-title-text { font-size: 1em; }
-        .status-card { padding: 10px 10px; min-height: 60px; margin-bottom: 8px; }
-        .status-badge { width: 22px; height: 22px; font-size: 11px; }
-        .status-label { font-size: 0.64em; }
-        .status-value { font-size: 0.82em; margin-top: 4px; }
-        .fc-toolbar-title { font-size: 1em !important; }
-        .fc-button { padding: 4px 8px !important; font-size: 0.8em !important; }
-        .fc-col-header-cell { font-size: 0.78em; }
-        .fc-daygrid-day-number { font-size: 0.8em; }
-        .fc-event { font-size: 0.68em !important; padding: 1px 4px !important; }
+        .page-title { font-size: 1.2em; }
+        .status-card { padding: 7px 9px; min-height: 52px; }
+        .status-badge { width: 17px; height: 17px; font-size: 9px; }
+        .status-label { font-size: 0.6em; }
+        .status-value { font-size: 0.75em; }
+        .fc-daygrid-day-frame { min-height: 34px !important; }
+        .fc-daygrid-day-number { font-size: 0.72em; }
+        .fc-event { font-size: 0.6em !important; }
     }
     </style>
     """,
@@ -134,28 +140,15 @@ st.markdown(
 )
 
 
-def section_title(icon: str, text: str, color: str = "#2E7D32") -> None:
+def status_card(icon: str, accent: str, bg: str, label: str, value: str) -> None:
     st.markdown(
         f"""
-        <div class="section-title-row">
-            <div class="section-title-icon">{icon}</div>
-            <div class="section-title-text" style="color:{color};">{text}</div>
-        </div>
-        <div class="section-title-underline" style="background:{color};"></div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def status_card(icon: str, accent_color: str, bg_color: str, label: str, value_text: str) -> None:
-    st.markdown(
-        f"""
-        <div class="status-card" style="background:{bg_color}; border-left:5px solid {accent_color};">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <div class="status-badge" style="background:{accent_color}; color:white;">{icon}</div>
-                <div class="status-label" style="color:{accent_color};">{label}</div>
+        <div class="status-card" style="background:{bg}; border-left:4px solid {accent};">
+            <div style="display:flex; align-items:center; gap:6px;">
+                <div class="status-badge" style="background:{accent}; color:white;">{icon}</div>
+                <div class="status-label" style="color:{accent};">{label}</div>
             </div>
-            <div class="status-value">{value_text}</div>
+            <div class="status-value">{value}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -163,24 +156,25 @@ def status_card(icon: str, accent_color: str, bg_color: str, label: str, value_t
 
 
 # ============================================================
-# 상단 타이틀 + 안전 경고
+# 헤더 (타이틀 + 위치를 한 줄로)
 # ============================================================
-st.title("🌾 스마트팜 종합 농가 관리 시스템")
-st.caption(
-    f"현재 등록된 농장 위치: **{st.session_state.farm_location['name']}**  "
-    f"({st.session_state.farm_location['lat']:.4f}, {st.session_state.farm_location['lon']:.4f})"
+loc = st.session_state.farm_location
+st.markdown(
+    f"""
+    <div class="page-header">
+        <span class="page-title">🌾 스마트팜 종합 농가 관리 시스템</span>
+        <span class="page-sub">📍 {loc['name']}</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-weather = get_weather(
-    st.session_state.farm_location["lat"],
-    st.session_state.farm_location["lon"],
-    st.session_state.api_key,
-)
+weather = get_weather(loc["lat"], loc["lon"], st.session_state.api_key)
 
 if weather["wind_speed"] >= 10:
-    st.warning(f"🌬️ **강풍 주의보급 수준입니다!** 현재 풍속 {weather['wind_speed']} m/s — 시설물 점검을 권장합니다.")
+    st.warning(f"🌬️ **강풍 주의!** 풍속 {weather['wind_speed']} m/s — 시설물 점검을 권장합니다.")
 if any(k in weather["description"] for k in ["비", "폭우", "소나기"]):
-    st.warning(f"🌧️ 강우 예보가 있습니다: {weather['description']} — 배수로를 미리 점검하세요.")
+    st.warning(f"🌧️ 강우 예보: {weather['description']} — 배수로를 미리 점검하세요.")
 
 farm_logs = db.get_farm_logs()
 schedules = db.get_schedules()
@@ -189,54 +183,54 @@ documents = db.get_documents()
 # ============================================================
 # 1) 오늘의 현황
 # ============================================================
-section_title("📋", "오늘의 현황", "#2E7D32")
+st.markdown('<div class="section-title">📋 오늘의 현황</div>', unsafe_allow_html=True)
 
-status1, status2, status3, status4 = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
 
-with status1:
+with c1:
     mock_note = " (목업)" if weather["is_mock"] else ""
-    status_card(
-        "☀️", "#00897B", "#DDF3EF",
-        f"오늘 날씨{mock_note}",
-        f"{weather['temp']}℃ · 💧{weather['humidity']}% · 💨{weather['wind_speed']}m/s",
-    )
+    status_card("☀️", "#00897B", "#DDF3EF", f"오늘 날씨{mock_note}",
+                f"{weather['temp']}℃ · 💧{weather['humidity']}% · 💨{weather['wind_speed']}m/s")
 
-with status2:
+with c2:
     upcoming = sorted([s for s in schedules if not s["done"]], key=lambda x: x["start_date"])
     if upcoming:
         s = upcoming[0]
-        status_card("📅", "#1E88E5", "#DCEBFB", "다음 일정", f"{importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
+        status_card("📅", "#1E88E5", "#DCEBFB", "다음 일정",
+                    f"{importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
     else:
         status_card("📅", "#1E88E5", "#DCEBFB", "다음 일정", "예정된 일정이 없습니다.")
 
-with status3:
+with c3:
     recent_logs = sorted(farm_logs, key=lambda x: x["log_date"], reverse=True)
     if recent_logs:
         log = recent_logs[0]
-        status_card("📝", "#43A047", "#DFF3DE", "최근 영농일지", f"{log['log_date']} · [{log['work_type']}] {log['zone']}")
+        status_card("📝", "#43A047", "#DFF3DE", "최근 영농일지",
+                    f"{log['log_date']} · [{log['work_type']}] {log['zone']}")
     else:
-        status_card("📝", "#43A047", "#DFF3DE", "최근 영농일지", "작성된 영농일지가 없습니다.")
+        status_card("📝", "#43A047", "#DFF3DE", "최근 영농일지", "작성된 일지가 없습니다.")
 
-with status4:
+with c4:
     recent_docs = sorted(documents, key=lambda x: x["upload_date"], reverse=True)
     if recent_docs:
         d = recent_docs[0]
-        status_card("📁", "#FB8C00", "#FFE9CC", "최근 업로드 자료", f"{d['filename']} · [{d['category']}]")
+        status_card("📁", "#FB8C00", "#FFE9CC", "최근 업로드 자료",
+                    f"{d['filename']} · [{d['category']}]")
     else:
         status_card("📁", "#FB8C00", "#FFE9CC", "최근 업로드 자료", "업로드된 자료가 없습니다.")
 
 # ============================================================
-# 2) 일정 캘린더 (박스형 미니멀 스타일)
+# 2) 일정 캘린더
 # ============================================================
-section_title("🗓️", "일정 캘린더", "#2E7D32")
-st.caption("날짜를 클릭하면 그 날의 일정을 확인하고 바로 등록할 수 있습니다.")
-
-# 범례
 legend_html = " · ".join(
-    f'<span class="dot" style="background:{color};"></span>{level}'
-    for level, color in IMPORTANCE_COLORS.items()
+    f'<span class="dot" style="background:{c};"></span>{lv}' for lv, c in IMPORTANCE_COLORS.items()
 )
-st.markdown(f'<div class="cal-legend">{legend_html}</div>', unsafe_allow_html=True)
+st.markdown(
+    f'<div class="section-title">🗓️ 일정 캘린더'
+    f'<span class="cal-legend" style="margin-left:10px; font-weight:400;">{legend_html}'
+    f' &nbsp;|&nbsp; 날짜 클릭 → 등록 · 일정 클릭 → 삭제</span></div>',
+    unsafe_allow_html=True,
+)
 
 if not CALENDAR_AVAILABLE:
     st.warning("캘린더 기능을 사용하려면 `requirements.txt`에 `streamlit-calendar`를 추가해주세요.")
@@ -263,11 +257,11 @@ else:
         "initialView": "dayGridMonth",
         "initialDate": st.session_state["cal_initial_date"],
         "locale": "ko",
-        "aspectRatio": 1.9,
+        "height": 340,
         "fixedWeekCount": False,
         "dayMaxEventRows": 2,
         "selectable": True,
-        "headerToolbar": {"left": "prev", "center": "title", "right": "next"},
+        "headerToolbar": {"left": "prev,next", "center": "title", "right": "today"},
     }
 
     cal_key = f"farm_calendar_{st.session_state['cal_initial_date']}"
@@ -281,24 +275,22 @@ else:
         st.session_state["cal_selected_event"] = cal_result["eventClick"]["event"]
         st.session_state.pop("cal_add_date", None)
 
-    if st.button("📍 오늘로 이동"):
-        st.session_state["cal_initial_date"] = datetime.now().strftime("%Y-%m-%d")
-        st.rerun()
-
+    # ---- 새 일정 추가 (날짜 클릭 시에만 표시) ----
     if st.session_state.get("cal_add_date"):
         add_date = st.session_state["cal_add_date"]
         with st.form("cal_add_schedule_form"):
-            st.markdown(f"**📅 {add_date}에 새 일정 추가**")
-            new_title = st.text_input("일정 제목")
-            col1, col2 = st.columns(2)
-            with col1:
-                new_importance = st.selectbox("중요도", IMPORTANCE_LEVELS)
-            with col2:
-                new_category = st.selectbox("범주", SCHEDULE_CATEGORIES)
+            st.markdown(f"**📅 {add_date} 새 일정 추가**")
+            fc1, fc2, fc3 = st.columns([3, 1, 1])
+            with fc1:
+                new_title = st.text_input("일정 제목", label_visibility="collapsed", placeholder="일정 제목")
+            with fc2:
+                new_importance = st.selectbox("중요도", IMPORTANCE_LEVELS, label_visibility="collapsed")
+            with fc3:
+                new_category = st.selectbox("범주", SCHEDULE_CATEGORIES, label_visibility="collapsed")
 
-            fc1, fc2 = st.columns(2)
-            save_clicked = fc1.form_submit_button("💾 저장", use_container_width=True)
-            cancel_clicked = fc2.form_submit_button("취소", use_container_width=True)
+            bc1, bc2 = st.columns(2)
+            save_clicked = bc1.form_submit_button("💾 저장", use_container_width=True)
+            cancel_clicked = bc2.form_submit_button("취소", use_container_width=True)
 
             if save_clicked:
                 if not new_title:
@@ -306,22 +298,20 @@ else:
                 else:
                     db.add_schedule(new_title, add_date, add_date, new_importance, new_category)
                     st.session_state.pop("cal_add_date", None)
-                    st.success("일정이 추가되었습니다.")
                     st.rerun()
             if cancel_clicked:
                 st.session_state.pop("cal_add_date", None)
                 st.rerun()
 
+    # ---- 선택한 일정 삭제 (일정 클릭 시에만 표시) ----
     if st.session_state.get("cal_selected_event"):
         ev = st.session_state["cal_selected_event"]
-        with st.container(border=True):
-            st.markdown(f"**선택한 일정**: {ev.get('title', '')}")
-            dc1, dc2 = st.columns(2)
-            if dc1.button("🗑️ 이 일정 삭제", use_container_width=True):
-                db.delete_schedule(ev["id"])
-                st.session_state.pop("cal_selected_event", None)
-                st.success("일정이 삭제되었습니다.")
-                st.rerun()
-            if dc2.button("닫기", use_container_width=True):
-                st.session_state.pop("cal_selected_event", None)
-                st.rerun()
+        dc0, dc1, dc2 = st.columns([3, 1, 1])
+        dc0.markdown(f"**선택한 일정**: {ev.get('title', '')}")
+        if dc1.button("🗑️ 삭제", use_container_width=True):
+            db.delete_schedule(ev["id"])
+            st.session_state.pop("cal_selected_event", None)
+            st.rerun()
+        if dc2.button("닫기", use_container_width=True):
+            st.session_state.pop("cal_selected_event", None)
+            st.rerun()
