@@ -4,10 +4,9 @@ common.py
 --------------------------------------------------
 app.py와 views/*.py 여러 화면에서 공통으로 쓰는 것들을 모아둔 모듈.
 - 상수 (작업유형, 카테고리 등)
-- 세션 상태 초기화 (농장 위치, API 키)
+- 세션 상태 초기화 (농장 위치는 고정값, API 키는 Secrets에서 자동 로드)
 - 날씨 조회 함수 (실시간 + 목업)
-- 주소 -> 위경도 변환 (네이버 지오코딩 우선, 없으면 OpenWeatherMap 대체)
-- 사이드바 공통 UI (위치 설정)
+- 사이드바 공통 UI (SNS 링크)
 - 자잘한 유틸 함수 (D-Day 계산 등)
 """
 
@@ -17,54 +16,34 @@ from datetime import datetime, date
 import requests
 import streamlit as st
 
-try:
-    from streamlit_js_eval import get_geolocation
-    GEO_AVAILABLE = True
-except ImportError:
-    GEO_AVAILABLE = False
-
-
-# ============================================================
-# 상수
-# ============================================================
 WORK_TYPES = ["파종", "비료/영양제", "방제", "수확", "기타"]
 DOC_CATEGORIES = ["재무/영수증", "장비메뉴얼", "계약서", "기타"]
 SCHEDULE_CATEGORIES = ["수확예정", "방제일", "납품일", "기타"]
 IMPORTANCE_LEVELS = ["높음", "보통", "낮음"]
 
+FIXED_FARM_LOCATION = {
+    "lat": 36.9611,
+    "lon": 126.5600,
+    "name": "충남 당진시 고대면 당진포리 140-14",
+}
 
-# ============================================================
-# 세션 상태 초기화 (모든 페이지 진입 시 맨 먼저 호출)
-# ============================================================
+SNS_LINKS = [
+    {"label": "📷 인스타그램", "url": "https://www.instagram.com/farmerhakssi"},
+    {"label": "▶️ 유튜브", "url": "https://www.youtube.com/@farmerhak"},
+]
+
+
 def init_common_session_state() -> None:
     if "farm_location" not in st.session_state:
-        st.session_state.farm_location = {
-            "lat": 37.5665,
-            "lon": 126.9780,
-            "name": "서울 (기본값)",
-        }
+        st.session_state.farm_location = FIXED_FARM_LOCATION
     if "api_key" not in st.session_state:
         try:
             st.session_state.api_key = st.secrets.get("OPENWEATHER_API_KEY", "")
         except Exception:
             st.session_state.api_key = ""
-    if "naver_client_id" not in st.session_state:
-        try:
-            st.session_state.naver_client_id = st.secrets.get("NAVER_CLIENT_ID", "")
-        except Exception:
-            st.session_state.naver_client_id = ""
-    if "naver_client_secret" not in st.session_state:
-        try:
-            st.session_state.naver_client_secret = st.secrets.get("NAVER_CLIENT_SECRET", "")
-        except Exception:
-            st.session_state.naver_client_secret = ""
 
 
-# ============================================================
-# 날씨 조회
-# ============================================================
 def get_mock_weather() -> dict:
-    """API 키가 없거나 오류 발생 시 사용할 가상 날씨 데이터."""
     return {
         "temp": round(random.uniform(15, 29), 1),
         "humidity": random.randint(35, 85),
@@ -76,7 +55,6 @@ def get_mock_weather() -> dict:
 
 
 def get_weather(lat: float, lon: float, api_key: str) -> dict:
-    """실시간 날씨를 가져온다. 키가 없거나 실패하면 목업 데이터 반환."""
     if not api_key:
         return get_mock_weather()
     try:
@@ -99,111 +77,16 @@ def get_weather(lat: float, lon: float, api_key: str) -> dict:
         return mock
 
 
-# ============================================================
-# 주소 -> 위경도 변환
-# 1) 네이버 클라우드 플랫폼 Geocoding API (정밀, 키 등록 시 우선 사용)
-# 2) 네이버 키가 없으면 OpenWeatherMap Geocoding으로 자동 대체
-# ============================================================
-def geocode_address_naver(address: str, client_id: str, client_secret: str) -> dict | None:
-    """네이버 클라우드 플랫폼 Geocoding API. 도로명 주소까지 정밀하게 인식."""
-    if not address or not client_id or not client_secret:
-        return None
-    try:
-        url = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode"
-        headers = {
-            "x-ncp-apigw-api-key-id": client_id,
-            "x-ncp-apigw-api-key": client_secret,
-        }
-        params = {"query": address}
-        resp = requests.get(url, headers=headers, params=params, timeout=6)
-        resp.raise_for_status()
-        data = resp.json()
-        if data.get("status") != "OK" or not data.get("addresses"):
-            return None
-        r = data["addresses"][0]
-        display_name = r.get("roadAddress") or r.get("jibunAddress") or address
-        return {"lat": float(r["y"]), "lon": float(r["x"]), "name": display_name}
-    except Exception:
-        return None
-
-
-def geocode_address_owm(address: str, api_key: str) -> dict | None:
-    """OpenWeatherMap Geocoding API. 네이버 키가 없을 때의 대체 수단 (시/군/구 단위 검색에 적합)."""
-    if not address or not api_key:
-        return None
-    try:
-        url = "http://api.openweathermap.org/geo/1.0/direct"
-        params = {"q": address, "limit": 1, "appid": api_key}
-        resp = requests.get(url, params=params, timeout=6)
-        resp.raise_for_status()
-        results = resp.json()
-        if not results:
-            return None
-        r = results[0]
-        return {"lat": r["lat"], "lon": r["lon"], "name": address}
-    except Exception:
-        return None
-
-
-def geocode_address(address: str) -> dict | None:
-    """네이버를 우선 시도하고, 키가 없거나 실패하면 OpenWeatherMap으로 대체."""
-    naver_id = st.session_state.get("naver_client_id", "")
-    naver_secret = st.session_state.get("naver_client_secret", "")
-    if naver_id and naver_secret:
-        result = geocode_address_naver(address, naver_id, naver_secret)
-        if result:
-            return result
-    return geocode_address_owm(address, st.session_state.get("api_key", ""))
-
-
-# ============================================================
-# 사이드바 공통 UI (위치 설정)
-# 모든 페이지 상단에서 render_sidebar_settings() 한 번만 호출하면 됨
-# ============================================================
-def render_sidebar_settings() -> None:
+def render_sidebar_links() -> None:
+    """사이드바 하단에 SNS 링크 버튼을 표시한다."""
     with st.sidebar:
-        with st.expander("📍 농장 위치 설정", expanded=False):
-            loc = st.session_state.farm_location
-            st.caption(f"현재 위치: **{loc['name']}** ({loc['lat']:.4f}, {loc['lon']:.4f})")
-
-            # ---- 주소/지역명으로 검색 ----
-            address_in = st.text_input(
-                "주소 또는 지역명 검색",
-                placeholder="예: 전북 김제시 만경읍 OO로 123",
-            )
-            if st.button("🔍 이 주소로 위치 설정", use_container_width=True):
-                result = geocode_address(address_in)
-                if result:
-                    st.session_state.farm_location = result
-                    st.success(f"'{result['name']}' 위치로 설정했습니다.")
-                    st.rerun()
-                else:
-                    st.error("주소를 찾을 수 없습니다. 다르게 입력해보세요 (예: 도로명 또는 시/군/구 단위).")
-
-            st.divider()
-
-            # ---- 실시간 GPS 자동 감지 ----
-            if GEO_AVAILABLE:
-                st.caption("또는 현재 계신 곳의 위치를 자동으로 가져올 수 있습니다.")
-                if st.button("📡 현재 위치로 자동 감지", use_container_width=True):
-                    gloc = get_geolocation()
-                    if gloc and "coords" in gloc:
-                        st.session_state.farm_location = {
-                            "lat": gloc["coords"]["latitude"],
-                            "lon": gloc["coords"]["longitude"],
-                            "name": "현재 위치(자동 감지)",
-                        }
-                        st.success("현재 위치를 반영했습니다!")
-                        st.rerun()
-                    else:
-                        st.info("위치 권한을 허용해주세요. 팝업이 안 보이면 다시 눌러주세요.")
+        st.divider()
+        st.caption("SNS")
+        for link in SNS_LINKS:
+            st.link_button(link["label"], link["url"], use_container_width=True)
 
 
-# ============================================================
-# 유틸 함수
-# ============================================================
 def calc_dday(target_date_str: str) -> str:
-    """날짜 문자열을 받아 'D-3', 'D-DAY', 'D+2' 형식으로 변환."""
     target = datetime.strptime(target_date_str, "%Y-%m-%d").date()
     diff = (target - date.today()).days
     if diff == 0:
