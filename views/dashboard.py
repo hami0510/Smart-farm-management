@@ -3,7 +3,7 @@
 🏠 대시보드 화면
 --------------------------------------------------
 1) 오늘의 현황 (상단, 레이블+아이콘 배지가 있는 카드 4개)
-2) 일정 캘린더 (하단, 전체 너비, 주말 색상 구분, 모바일 반응형)
+2) 일정 캘린더 (하단, 전체 너비, 주말 색상 구분, 모바일 반응형, 크기 축소)
 디자인: 섹션 타이틀 위계 강화, 카드 색상 진하게, 캘린더 주말 강조 + 모바일 최적화
 """
 
@@ -22,7 +22,7 @@ except ImportError:
 
 
 # ============================================================
-# 공통 스타일 주입 (+ 모바일 반응형)
+# 공통 스타일 주입
 # ============================================================
 st.markdown(
     """
@@ -58,7 +58,7 @@ st.markdown(
     .fc-day-sun .fc-daygrid-day-number { color: #C62828; }
     .fc-day-sat .fc-daygrid-day-number { color: #1565C0; }
 
-    .fc-daygrid-day-frame { padding: 3px !important; }
+    .fc-daygrid-day-frame { padding: 3px !important; min-height: 62px !important; }
     .fc-day-today .fc-daygrid-day-frame {
         background: #FFF1D6 !important;
         border-radius: 12px;
@@ -105,7 +105,7 @@ st.markdown(
         height: 3px; width: 46px; border-radius: 2px; margin: 4px 0 14px 0;
     }
 
-    /* 모바일 반응형 (좁은 화면에서 카드/캘린더 글자·여백 축소) */
+    /* 모바일 반응형 */
     @media (max-width: 640px) {
         .section-title-text { font-size: 1em; }
         .section-title-icon { font-size: 1.1em; }
@@ -244,9 +244,11 @@ else:
     calendar_options = {
         "initialView": "dayGridMonth",
         "locale": "ko",
-        "aspectRatio": 1.35,
+        "aspectRatio": 2.0,
+        "fixedWeekCount": False,
+        "dayMaxEventRows": 2,
         "selectable": True,
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
+        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,listWeek"},
     }
 
     cal_result = calendar(events=events, options=calendar_options, key="farm_calendar")
