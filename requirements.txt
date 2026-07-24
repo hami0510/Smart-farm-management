@@ -2,3 +2,5 @@ streamlit>=1.37.0
 requests>=2.31.0
 streamlit-calendar>=1.2.0
 holidays>=0.50
+supabase>=2.10.0
+pandas>=2.0.0
