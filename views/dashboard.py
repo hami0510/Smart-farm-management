@@ -3,8 +3,8 @@
 🏠 대시보드 화면
 --------------------------------------------------
 1) 오늘의 현황 (상단, 레이블+아이콘 배지가 있는 카드 4개)
-2) 일정 캘린더 (하단, 전체 너비, 주말 색상 구분)
-디자인: 섹션 타이틀 위계 강화, 카드 색상 진하게, 캘린더 주말 강조
+2) 일정 캘린더 (하단, 전체 너비, 주말 색상 구분, 모바일 반응형)
+디자인: 섹션 타이틀 위계 강화, 카드 색상 진하게, 캘린더 주말 강조 + 모바일 최적화
 """
 
 from datetime import datetime, timedelta
@@ -22,7 +22,7 @@ except ImportError:
 
 
 # ============================================================
-# 공통 스타일 주입
+# 공통 스타일 주입 (+ 모바일 반응형)
 # ============================================================
 st.markdown(
     """
@@ -48,7 +48,9 @@ st.markdown(
     .fc-button:hover { background: #3d8b40 !important; }
     .fc-button-active { background: #2E7D32 !important; }
 
+    /* 평일 헤더 */
     .fc-col-header-cell { background: #F1F8F0; font-weight: 600; color: #4A6B4A; }
+    /* 주말 색상 구분 */
     .fc-col-header-cell.fc-day-sun { background: #FBEAEA; color: #C62828; }
     .fc-col-header-cell.fc-day-sat { background: #E9F1FC; color: #1565C0; }
     .fc-daygrid-day.fc-day-sun { background: #FFFAFA; }
@@ -72,6 +74,7 @@ st.markdown(
         font-weight: 500;
     }
 
+    /* 오늘의 현황 카드 */
     .status-card {
         border-radius: 12px;
         padding: 12px 14px;
@@ -92,6 +95,7 @@ st.markdown(
         font-size: 0.92em; color: #2B2B2B; margin-top: 6px; line-height: 1.35;
     }
 
+    /* 섹션 타이틀 */
     .section-title-row {
         display: flex; align-items: center; gap: 8px; margin: 14px 0 4px 0;
     }
@@ -99,6 +103,21 @@ st.markdown(
     .section-title-text { font-size: 1.12em; font-weight: 700; }
     .section-title-underline {
         height: 3px; width: 46px; border-radius: 2px; margin: 4px 0 14px 0;
+    }
+
+    /* 모바일 반응형 (좁은 화면에서 카드/캘린더 글자·여백 축소) */
+    @media (max-width: 640px) {
+        .section-title-text { font-size: 1em; }
+        .section-title-icon { font-size: 1.1em; }
+        .status-card { padding: 10px 10px; min-height: 60px; margin-bottom: 8px; }
+        .status-badge { width: 22px; height: 22px; font-size: 11px; }
+        .status-label { font-size: 0.64em; }
+        .status-value { font-size: 0.82em; margin-top: 4px; }
+        .fc-toolbar-title { font-size: 1em !important; }
+        .fc-button { padding: 4px 8px !important; font-size: 0.8em !important; }
+        .fc-col-header-cell { font-size: 0.78em; }
+        .fc-daygrid-day-number { font-size: 0.8em; }
+        .fc-event { font-size: 0.68em !important; padding: 1px 4px !important; }
     }
     </style>
     """,
@@ -225,7 +244,7 @@ else:
     calendar_options = {
         "initialView": "dayGridMonth",
         "locale": "ko",
-        "height": 620,
+        "aspectRatio": 1.35,
         "selectable": True,
         "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
     }
