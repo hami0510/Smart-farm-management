@@ -2,9 +2,9 @@
 """
 🏠 대시보드 화면
 --------------------------------------------------
-1) 오늘의 현황 (상단, 가로 카드 4개: 날씨/일정/일지/자료)
-2) 일정 캘린더 (하단, 전체 너비)
-디자인: 카드형 UI (둥근 모서리 + 그림자 + 포인트 컬러)
+1) 오늘의 현황 (상단, 레이블+아이콘 배지가 있는 카드 4개)
+2) 일정 캘린더 (하단, 전체 너비, 주말 색상 구분)
+디자인: 섹션 타이틀 위계 강화, 카드 색상 진하게, 캘린더 주말 강조
 """
 
 from datetime import datetime, timedelta
@@ -22,7 +22,7 @@ except ImportError:
 
 
 # ============================================================
-# 카드형 디자인을 위한 공통 스타일 주입
+# 공통 스타일 주입
 # ============================================================
 st.markdown(
     """
@@ -31,7 +31,7 @@ st.markdown(
         border-radius: 18px;
         overflow: hidden;
         border: 1px solid #E4EFDF;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
         font-family: inherit;
     }
     .fc-toolbar-title {
@@ -47,16 +47,20 @@ st.markdown(
     }
     .fc-button:hover { background: #3d8b40 !important; }
     .fc-button-active { background: #2E7D32 !important; }
-    .fc-col-header-cell {
-        background: #F1F8F0;
-        font-weight: 600;
-        color: #4A6B4A;
-    }
+
+    .fc-col-header-cell { background: #F1F8F0; font-weight: 600; color: #4A6B4A; }
+    .fc-col-header-cell.fc-day-sun { background: #FBEAEA; color: #C62828; }
+    .fc-col-header-cell.fc-day-sat { background: #E9F1FC; color: #1565C0; }
+    .fc-daygrid-day.fc-day-sun { background: #FFFAFA; }
+    .fc-daygrid-day.fc-day-sat { background: #FAFCFF; }
+    .fc-day-sun .fc-daygrid-day-number { color: #C62828; }
+    .fc-day-sat .fc-daygrid-day-number { color: #1565C0; }
+
     .fc-daygrid-day-frame { padding: 3px !important; }
     .fc-day-today .fc-daygrid-day-frame {
-        background: #FFF4E0 !important;
+        background: #FFF1D6 !important;
         border-radius: 12px;
-        box-shadow: inset 0 0 0 2px #FFA726;
+        box-shadow: inset 0 0 0 2px #FB8C00;
         margin: 3px;
     }
     .fc-daygrid-day-number { font-weight: 500; color: #4A5A4A; }
@@ -72,21 +76,58 @@ st.markdown(
         border-radius: 12px;
         padding: 12px 14px;
         margin-bottom: 6px;
-        min-height: 64px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        min-height: 76px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .status-card .main-text { font-size: 0.88em; color: #333; }
+    .status-badge {
+        width: 26px; height: 26px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 13px; flex-shrink: 0;
+    }
+    .status-label {
+        font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .status-value {
+        font-size: 0.92em; color: #2B2B2B; margin-top: 6px; line-height: 1.35;
+    }
+
+    .section-title-row {
+        display: flex; align-items: center; gap: 8px; margin: 14px 0 4px 0;
+    }
+    .section-title-icon { font-size: 1.25em; }
+    .section-title-text { font-size: 1.12em; font-weight: 700; }
+    .section-title-underline {
+        height: 3px; width: 46px; border-radius: 2px; margin: 4px 0 14px 0;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-def status_card(icon: str, accent_color: str, bg_color: str, main_text: str) -> None:
+def section_title(icon: str, text: str, color: str = "#2E7D32") -> None:
     st.markdown(
         f"""
-        <div class="status-card" style="background:{bg_color}; border-left:4px solid {accent_color};">
-            <div class="main-text">{icon} {main_text}</div>
+        <div class="section-title-row">
+            <div class="section-title-icon">{icon}</div>
+            <div class="section-title-text" style="color:{color};">{text}</div>
+        </div>
+        <div class="section-title-underline" style="background:{color};"></div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def status_card(icon: str, accent_color: str, bg_color: str, label: str, value_text: str) -> None:
+    st.markdown(
+        f"""
+        <div class="status-card" style="background:{bg_color}; border-left:5px solid {accent_color};">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div class="status-badge" style="background:{accent_color}; color:white;">{icon}</div>
+                <div class="status-label" style="color:{accent_color};">{label}</div>
+            </div>
+            <div class="status-value">{value_text}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -94,7 +135,7 @@ def status_card(icon: str, accent_color: str, bg_color: str, main_text: str) -> 
 
 
 # ============================================================
-# 상단 타이틀 + 안전 경고 (강풍/폭우는 눈에 띄게 유지)
+# 상단 타이틀 + 안전 경고
 # ============================================================
 st.title("🌾 스마트팜 종합 농가 관리 시스템")
 st.caption(
@@ -118,49 +159,48 @@ schedules = db.get_schedules()
 documents = db.get_documents()
 
 # ============================================================
-# 1) 오늘의 현황 (상단, 가로 카드 4개)
+# 1) 오늘의 현황
 # ============================================================
-st.markdown("**📋 오늘의 현황**")
+section_title("📋", "오늘의 현황", "#2E7D32")
 
 status1, status2, status3, status4 = st.columns(4)
 
 with status1:
-    mock_note = " · ⚠️목업" if weather["is_mock"] else ""
+    mock_note = " (목업)" if weather["is_mock"] else ""
     status_card(
-        "☀️",
-        "#26A69A",
-        "#EAF7F5",
-        f"{weather['temp']}℃ · 💧{weather['humidity']}% · 💨{weather['wind_speed']}m/s{mock_note}",
+        "☀️", "#00897B", "#DDF3EF",
+        f"오늘 날씨{mock_note}",
+        f"{weather['temp']}℃ · 💧{weather['humidity']}% · 💨{weather['wind_speed']}m/s",
     )
 
 with status2:
     upcoming = sorted([s for s in schedules if not s["done"]], key=lambda x: x["start_date"])
     if upcoming:
         s = upcoming[0]
-        status_card("📅", "#42A5F5", "#EEF6FD", f"{importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
+        status_card("📅", "#1E88E5", "#DCEBFB", "다음 일정", f"{importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
     else:
-        status_card("📅", "#42A5F5", "#EEF6FD", "예정된 일정이 없습니다.")
+        status_card("📅", "#1E88E5", "#DCEBFB", "다음 일정", "예정된 일정이 없습니다.")
 
 with status3:
     recent_logs = sorted(farm_logs, key=lambda x: x["log_date"], reverse=True)
     if recent_logs:
         log = recent_logs[0]
-        status_card("📝", "#66BB6A", "#EFF8EF", f"{log['log_date']} · [{log['work_type']}] {log['zone']}")
+        status_card("📝", "#43A047", "#DFF3DE", "최근 영농일지", f"{log['log_date']} · [{log['work_type']}] {log['zone']}")
     else:
-        status_card("📝", "#66BB6A", "#EFF8EF", "작성된 영농일지가 없습니다.")
+        status_card("📝", "#43A047", "#DFF3DE", "최근 영농일지", "작성된 영농일지가 없습니다.")
 
 with status4:
     recent_docs = sorted(documents, key=lambda x: x["upload_date"], reverse=True)
     if recent_docs:
         d = recent_docs[0]
-        status_card("📁", "#FFA726", "#FFF6EA", f"{d['filename']} · [{d['category']}]")
+        status_card("📁", "#FB8C00", "#FFE9CC", "최근 업로드 자료", f"{d['filename']} · [{d['category']}]")
     else:
-        status_card("📁", "#FFA726", "#FFF6EA", "업로드된 자료가 없습니다.")
+        status_card("📁", "#FB8C00", "#FFE9CC", "최근 업로드 자료", "업로드된 자료가 없습니다.")
 
 # ============================================================
-# 2) 일정 캘린더 (하단, 전체 너비)
+# 2) 일정 캘린더
 # ============================================================
-st.markdown("**🗓️ 일정 캘린더**")
+section_title("🗓️", "일정 캘린더", "#2E7D32")
 
 if not CALENDAR_AVAILABLE:
     st.warning("캘린더 기능을 사용하려면 `requirements.txt`에 `streamlit-calendar`를 추가해주세요.")
