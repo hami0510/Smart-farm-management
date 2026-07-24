@@ -3,7 +3,7 @@
 🏠 대시보드 화면
 --------------------------------------------------
 1) 오늘의 현황 (가로 카드 4개, 모바일에서는 세로 스택)
-2) 일정 캘린더 (박스형 미니멀 스타일)
+2) 일정 캘린더 (박스형 미니멀 스타일 + 대한민국 공휴일 표시)
 
 중요: 캘린더는 iframe 안에서 렌더링되므로 st.markdown의 CSS가 적용되지 않는다.
       캘린더 스타일은 반드시 calendar(custom_css=...) 로 전달해야 한다.
@@ -22,7 +22,29 @@ try:
 except ImportError:
     CALENDAR_AVAILABLE = False
 
+try:
+    import holidays as kr_holidays
+    HOLIDAYS_AVAILABLE = True
+except ImportError:
+    HOLIDAYS_AVAILABLE = False
+
 IMPORTANCE_COLORS = {"높음": "#FF6B6B", "보통": "#FFA726", "낮음": "#66BB6A"}
+
+# 제헌절은 2008년부터 공휴일이 아니므로 제외
+EXCLUDED_HOLIDAYS = {"제헌절"}
+
+
+@st.cache_data(ttl=86400)
+def get_korean_holidays(years: tuple) -> dict:
+    """대한민국 공휴일을 {날짜문자열: 명칭} 형태로 반환 (음력 명절/대체공휴일 포함)."""
+    if not HOLIDAYS_AVAILABLE:
+        return {}
+    result = {}
+    for d, name in kr_holidays.SouthKorea(years=list(years)).items():
+        if name in EXCLUDED_HOLIDAYS:
+            continue
+        result[d.strftime("%Y-%m-%d")] = name
+    return result
 
 
 # ============================================================
@@ -165,7 +187,9 @@ legend_html = " · ".join(
     f'<span class="dot" style="background:{c};"></span>{lv}' for lv, c in IMPORTANCE_COLORS.items()
 )
 st.markdown(
-    f'<div class="cal-legend">{legend_html} &nbsp;|&nbsp; 날짜 클릭 → 등록 · 일정 클릭 → 삭제</div>',
+    f'<div class="cal-legend">{legend_html} · '
+    f'<span class="dot" style="background:#FFEBEE; border:1px solid #D32F2F;"></span>공휴일'
+    f' &nbsp;|&nbsp; 날짜 클릭 → 등록 · 일정 클릭 → 삭제</div>',
     unsafe_allow_html=True,
 )
 
@@ -187,6 +211,21 @@ else:
         for s in schedules
     ]
 
+    # ---- 대한민국 공휴일을 캘린더에 표시 (앞뒤 연도까지 포함) ----
+    base_year = datetime.strptime(st.session_state.get("cal_initial_date", datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d").year
+    holiday_map = get_korean_holidays((base_year - 1, base_year, base_year + 1))
+    for hdate, hname in holiday_map.items():
+        events.append({
+            "id": f"holiday_{hdate}",
+            "title": hname,
+            "start": hdate,
+            "allDay": True,
+            "color": "#FFEBEE",
+            "textColor": "#D32F2F",
+            "editable": False,
+            "classNames": ["holiday-event"],
+        })
+
     if "cal_initial_date" not in st.session_state:
         st.session_state["cal_initial_date"] = datetime.now().strftime("%Y-%m-%d")
 
@@ -196,7 +235,7 @@ else:
         "locale": "ko",
         "height": "auto",
         "fixedWeekCount": False,
-        "dayMaxEventRows": 2,
+        "dayMaxEventRows": 3,
         "selectable": True,
         "headerToolbar": {"left": "prev,next", "center": "title", "right": "today"},
     }
@@ -261,6 +300,12 @@ else:
         }
         .fc-daygrid-more-link { font-size: 0.7em !important; }
 
+        /* 공휴일 이벤트 */
+        .holiday-event {
+            font-weight: 600 !important;
+            background: #FFEBEE !important;
+        }
+
         /* ---- 모바일 최적화 ---- */
         @media (max-width: 640px) {
             .fc-toolbar-title { font-size: 0.95em !important; }
@@ -291,8 +336,11 @@ else:
         st.session_state["cal_add_date"] = cal_result["dateClick"]["date"][:10]
         st.session_state.pop("cal_selected_event", None)
     elif callback_type == "eventClick":
-        st.session_state["cal_selected_event"] = cal_result["eventClick"]["event"]
-        st.session_state.pop("cal_add_date", None)
+        clicked = cal_result["eventClick"]["event"]
+        # 공휴일은 삭제 대상이 아니므로 무시
+        if not str(clicked.get("id", "")).startswith("holiday_"):
+            st.session_state["cal_selected_event"] = clicked
+            st.session_state.pop("cal_add_date", None)
 
     # ---- 새 일정 추가 ----
     if st.session_state.get("cal_add_date"):
