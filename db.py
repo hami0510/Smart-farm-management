@@ -192,11 +192,21 @@ def upload_file_to_storage(stored_name: str, file_bytes: bytes, content_type: st
     )
 
 
+@st.cache_data(ttl=600, show_spinner=False)
 def download_file_from_storage(stored_name: str) -> bytes | None:
-    """Storage에서 파일 내용을 내려받는다. 실패 시 None."""
+    """Storage에서 파일 내용을 내려받는다. 실패 시 None. (10분 캐시)"""
     sb = get_client()
     try:
         return sb.storage.from_(STORAGE_BUCKET).download(stored_name)
+    except Exception:
+        return None
+
+
+def get_public_url(stored_name: str) -> str | None:
+    """브라우저에서 바로 열 수 있는 공개 URL을 반환한다 (버킷이 Public일 때)."""
+    sb = get_client()
+    try:
+        return sb.storage.from_(STORAGE_BUCKET).get_public_url(stored_name)
     except Exception:
         return None
 
