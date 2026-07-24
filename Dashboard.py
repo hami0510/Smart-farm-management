@@ -119,4 +119,4 @@ with s3:
         for d in recent_docs:
             st.write(f"- 📄 {d['filename']} · [{d['category']}]")
     else:
-        st.caption("업로드된 자료가 없습니다. (자료 관리함 페이지는 다음 단계에서 추가됩니다)")
+        st.caption("업로드된 자료가 없습니다.")
