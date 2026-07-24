@@ -3,7 +3,7 @@
 🏠 대시보드 화면
 --------------------------------------------------
 1) 오늘의 현황 (가로 카드 4개, 모바일에서는 세로 스택)
-2) 일정 캘린더 (박스형 미니멀 스타일 + 대한민국 공휴일 표시)
+2) 일정 캘린더 (박스형 미니멀 스타일 + 공휴일 + 영농일지 표시)
 
 중요: 캘린더는 iframe 안에서 렌더링되므로 st.markdown의 CSS가 적용되지 않는다.
       캘린더 스타일은 반드시 calendar(custom_css=...) 로 전달해야 한다.
@@ -188,7 +188,8 @@ legend_html = " · ".join(
 )
 st.markdown(
     f'<div class="cal-legend">{legend_html} · '
-    f'<span class="dot" style="background:#FFEBEE; border:1px solid #D32F2F;"></span>공휴일'
+    f'<span class="dot" style="background:#FFEBEE; border:1px solid #D32F2F;"></span>공휴일 · '
+    f'<span class="dot" style="background:#ECEFF1; border:1px solid #90A4AE;"></span>영농일지'
     f' &nbsp;|&nbsp; 날짜 클릭 → 등록 · 일정 클릭 → 삭제</div>',
     unsafe_allow_html=True,
 )
@@ -210,6 +211,19 @@ else:
         }
         for s in schedules
     ]
+
+    # ---- 영농일지를 캘린더에 표시 (회색 계열, 클릭 시 삭제 대상 아님) ----
+    for log in farm_logs:
+        events.append({
+            "id": f"log_{log['id']}",
+            "title": f"📝 [{log['work_type']}] {log['zone']}",
+            "start": log["log_date"],
+            "allDay": True,
+            "color": "#ECEFF1",
+            "textColor": "#455A64",
+            "editable": False,
+            "classNames": ["farmlog-event"],
+        })
 
     # ---- 대한민국 공휴일을 캘린더에 표시 (앞뒤 연도까지 포함) ----
     base_year = datetime.strptime(st.session_state.get("cal_initial_date", datetime.now().strftime("%Y-%m-%d")), "%Y-%m-%d").year
@@ -235,7 +249,7 @@ else:
         "locale": "ko",
         "height": "auto",
         "fixedWeekCount": False,
-        "dayMaxEventRows": 3,
+        "dayMaxEventRows": 4,
         "selectable": True,
         "headerToolbar": {"left": "prev,next", "center": "title", "right": "today"},
     }
@@ -306,6 +320,12 @@ else:
             background: #FFEBEE !important;
         }
 
+        /* 영농일지 이벤트 */
+        .farmlog-event {
+            border-left: 3px solid #78909C !important;
+            opacity: 0.95;
+        }
+
         /* ---- 모바일 최적화 ---- */
         @media (max-width: 640px) {
             .fc-toolbar-title { font-size: 0.95em !important; }
@@ -337,8 +357,9 @@ else:
         st.session_state.pop("cal_selected_event", None)
     elif callback_type == "eventClick":
         clicked = cal_result["eventClick"]["event"]
-        # 공휴일은 삭제 대상이 아니므로 무시
-        if not str(clicked.get("id", "")).startswith("holiday_"):
+        # 공휴일·영농일지는 여기서 삭제 대상이 아니므로 무시
+        clicked_id = str(clicked.get("id", ""))
+        if not clicked_id.startswith("holiday_") and not clicked_id.startswith("log_"):
             st.session_state["cal_selected_event"] = clicked
             st.session_state.pop("cal_add_date", None)
 
