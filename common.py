@@ -129,7 +129,7 @@ def render_sidebar_settings() -> None:
                 st.success("농장 위치가 저장되었습니다.")
                 st.rerun()
 
-       with st.expander("🔑 OpenWeatherMap API 키", expanded=False):
+        with st.expander("🔑 OpenWeatherMap API 키", expanded=False):
             st.session_state.api_key = st.text_input(
                 "API Key", value=st.session_state.api_key, type="password",
                 placeholder="비워두면 등록된 기본 키(Secrets)를 사용합니다",
