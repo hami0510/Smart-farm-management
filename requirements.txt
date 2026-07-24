@@ -1,3 +1,4 @@
 streamlit>=1.37.0
 requests>=2.31.0
 streamlit-calendar>=1.2.0
+holidays>=0.50
