@@ -120,10 +120,15 @@ with right_col:
 
         custom_css = """
             .fc-day-today {
-                border: 3px solid #FF4B4B !important;
+                box-shadow: inset 0 0 0 3px #FF4B4B !important;
+                background-color: transparent !important;
+            }
+            .fc-daygrid-day-frame {
+                padding: 2px !important;
             }
             .fc-event {
                 cursor: pointer;
+                font-size: 0.8em !important;
             }
         """
 
