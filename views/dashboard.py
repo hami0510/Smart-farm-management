@@ -3,8 +3,7 @@
 🏠 대시보드 화면
 --------------------------------------------------
 1) 오늘의 현황 (상단, 레이블+아이콘 배지가 있는 카드 4개)
-2) 일정 캘린더 (하단, 전체 너비, 주말 색상 구분, 모바일 반응형, 크기 축소)
-디자인: 섹션 타이틀 위계 강화, 카드 색상 진하게, 캘린더 주말 강조 + 모바일 최적화
+2) 일정 캘린더 (하단, 전체 너비) - 날짜별 개별 박스형 미니멀 스타일
 """
 
 from datetime import datetime, timedelta
@@ -20,6 +19,8 @@ try:
 except ImportError:
     CALENDAR_AVAILABLE = False
 
+IMPORTANCE_COLORS = {"높음": "#FF6B6B", "보통": "#FFA726", "낮음": "#66BB6A"}
+
 
 # ============================================================
 # 공통 스타일 주입
@@ -27,53 +28,6 @@ except ImportError:
 st.markdown(
     """
     <style>
-    .fc {
-        border-radius: 18px;
-        overflow: hidden;
-        border: 1px solid #E4EFDF;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-        font-family: inherit;
-    }
-    .fc-toolbar-title {
-        font-weight: 700;
-        color: #2E7D32;
-        font-size: 1.2em !important;
-    }
-    .fc-button {
-        background: #4CAF50 !important;
-        border: none !important;
-        border-radius: 10px !important;
-        box-shadow: none !important;
-    }
-    .fc-button:hover { background: #3d8b40 !important; }
-    .fc-button-active { background: #2E7D32 !important; }
-
-    /* 평일 헤더 */
-    .fc-col-header-cell { background: #F1F8F0; font-weight: 600; color: #4A6B4A; }
-    /* 주말 색상 구분 */
-    .fc-col-header-cell.fc-day-sun { background: #FBEAEA; color: #C62828; }
-    .fc-col-header-cell.fc-day-sat { background: #E9F1FC; color: #1565C0; }
-    .fc-daygrid-day.fc-day-sun { background: #FFFAFA; }
-    .fc-daygrid-day.fc-day-sat { background: #FAFCFF; }
-    .fc-day-sun .fc-daygrid-day-number { color: #C62828; }
-    .fc-day-sat .fc-daygrid-day-number { color: #1565C0; }
-
-    .fc-daygrid-day-frame { padding: 3px !important; min-height: 62px !important; }
-    .fc-day-today .fc-daygrid-day-frame {
-        background: #FFF1D6 !important;
-        border-radius: 12px;
-        box-shadow: inset 0 0 0 2px #FB8C00;
-        margin: 3px;
-    }
-    .fc-daygrid-day-number { font-weight: 500; color: #4A5A4A; }
-    .fc-event {
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 2px 8px !important;
-        font-size: 0.78em !important;
-        font-weight: 500;
-    }
-
     /* 오늘의 현황 카드 */
     .status-card {
         border-radius: 12px;
@@ -102,13 +56,68 @@ st.markdown(
     .section-title-icon { font-size: 1.25em; }
     .section-title-text { font-size: 1.12em; font-weight: 700; }
     .section-title-underline {
-        height: 3px; width: 46px; border-radius: 2px; margin: 4px 0 14px 0;
+        height: 3px; width: 46px; border-radius: 2px; margin: 4px 0 10px 0;
     }
 
-    /* 모바일 반응형 */
+    /* 캘린더 범례 */
+    .cal-legend { font-size: 0.82em; color: #666; margin-bottom: 10px; }
+    .cal-legend .dot {
+        display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+        margin-right: 4px; vertical-align: middle;
+    }
+
+    /* ===== 캘린더: 박스형 미니멀 스타일 ===== */
+    .fc { border: none !important; box-shadow: none !important; }
+    .fc-theme-standard td, .fc-theme-standard th { border: none !important; }
+    .fc-scrollgrid { border: none !important; }
+
+    .fc-col-header-cell {
+        background: transparent !important;
+        border: none !important;
+        font-weight: 600;
+        color: #555;
+        padding-bottom: 6px !important;
+    }
+    .fc-col-header-cell.fc-day-sun { color: #E53935 !important; }
+    .fc-col-header-cell.fc-day-sat { color: #1E88E5 !important; }
+
+    .fc-daygrid-day-frame {
+        border: 1.5px solid #E6E6E6 !important;
+        border-radius: 10px !important;
+        margin: 3px !important;
+        background: #FFFFFF;
+        min-height: 58px !important;
+        padding: 4px !important;
+    }
+    .fc-daygrid-day.fc-day-sun .fc-daygrid-day-number { color: #E53935; }
+    .fc-daygrid-day.fc-day-sat .fc-daygrid-day-number { color: #1E88E5; }
+    .fc-daygrid-day-number { font-weight: 500; color: #444; padding: 4px 6px !important; }
+
+    .fc-day-today .fc-daygrid-day-frame {
+        border: 2px solid #222222 !important;
+        background: #FFFFFF !important;
+    }
+
+    .fc-event {
+        border-radius: 6px !important;
+        border: none !important;
+        padding: 1px 6px !important;
+        font-size: 0.72em !important;
+        font-weight: 500;
+    }
+
+    .fc-toolbar-title { font-weight: 700; color: #222; font-size: 1.1em !important; }
+    .fc-button {
+        background: #FFFFFF !important;
+        color: #333 !important;
+        border: 1px solid #DDD !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+    }
+    .fc-button:hover { background: #F5F5F5 !important; }
+
     @media (max-width: 640px) {
         .section-title-text { font-size: 1em; }
-        .section-title-icon { font-size: 1.1em; }
         .status-card { padding: 10px 10px; min-height: 60px; margin-bottom: 8px; }
         .status-badge { width: 22px; height: 22px; font-size: 11px; }
         .status-label { font-size: 0.64em; }
@@ -217,15 +226,21 @@ with status4:
         status_card("📁", "#FB8C00", "#FFE9CC", "최근 업로드 자료", "업로드된 자료가 없습니다.")
 
 # ============================================================
-# 2) 일정 캘린더
+# 2) 일정 캘린더 (박스형 미니멀 스타일)
 # ============================================================
 section_title("🗓️", "일정 캘린더", "#2E7D32")
+st.caption("날짜를 클릭하면 그 날의 일정을 확인하고 바로 등록할 수 있습니다.")
+
+# 범례
+legend_html = " · ".join(
+    f'<span class="dot" style="background:{color};"></span>{level}'
+    for level, color in IMPORTANCE_COLORS.items()
+)
+st.markdown(f'<div class="cal-legend">{legend_html}</div>', unsafe_allow_html=True)
 
 if not CALENDAR_AVAILABLE:
     st.warning("캘린더 기능을 사용하려면 `requirements.txt`에 `streamlit-calendar`를 추가해주세요.")
 else:
-    IMPORTANCE_COLORS = {"높음": "#FF6B6B", "보통": "#FFA726", "낮음": "#66BB6A"}
-
     def _fc_end(end_date_str: str) -> str:
         d = datetime.strptime(end_date_str, "%Y-%m-%d").date() + timedelta(days=1)
         return d.strftime("%Y-%m-%d")
@@ -241,17 +256,22 @@ else:
         for s in schedules
     ]
 
+    if "cal_initial_date" not in st.session_state:
+        st.session_state["cal_initial_date"] = datetime.now().strftime("%Y-%m-%d")
+
     calendar_options = {
         "initialView": "dayGridMonth",
+        "initialDate": st.session_state["cal_initial_date"],
         "locale": "ko",
-        "aspectRatio": 2.0,
+        "aspectRatio": 1.9,
         "fixedWeekCount": False,
         "dayMaxEventRows": 2,
         "selectable": True,
-        "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,listWeek"},
+        "headerToolbar": {"left": "prev", "center": "title", "right": "next"},
     }
 
-    cal_result = calendar(events=events, options=calendar_options, key="farm_calendar")
+    cal_key = f"farm_calendar_{st.session_state['cal_initial_date']}"
+    cal_result = calendar(events=events, options=calendar_options, key=cal_key)
     callback_type = cal_result.get("callback") if cal_result else None
 
     if callback_type == "dateClick":
@@ -261,7 +281,9 @@ else:
         st.session_state["cal_selected_event"] = cal_result["eventClick"]["event"]
         st.session_state.pop("cal_add_date", None)
 
-    st.caption("빈 날짜 클릭 → 일정 추가 · 기존 일정 클릭 → 삭제")
+    if st.button("📍 오늘로 이동"):
+        st.session_state["cal_initial_date"] = datetime.now().strftime("%Y-%m-%d")
+        st.rerun()
 
     if st.session_state.get("cal_add_date"):
         add_date = st.session_state["cal_add_date"]
