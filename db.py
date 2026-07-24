@@ -15,6 +15,7 @@ Supabase(Postgres + Storage) 연동 모듈.
 
 import uuid
 from datetime import date
+from urllib.parse import quote
 
 import streamlit as st
 
