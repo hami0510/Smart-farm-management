@@ -3,29 +3,29 @@
 📁 자료 관리함 화면
 --------------------------------------------------
 - 계약서, 영수증, 장비메뉴얼 등 파일 업로드
-- 업로드된 파일은 로컬 디스크(data/uploads/)에 저장, 메타데이터는 SQLite에 저장
+- 파일 원본은 Supabase Storage에, 메타데이터는 Supabase DB에 저장
+  → 새로고침/재배포 후에도 자료가 그대로 유지된다
 - 목록 조회, 카테고리 필터, 개별 다운로드/삭제
 """
 
-import streamlit as st
-import pandas as pd
-import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+import streamlit as st
+
 import db
 from common import DOC_CATEGORIES
 
-BASE_DIR = Path(__file__).parent.parent  # views/ 폴더의 상위 = 프로젝트 루트
-UPLOAD_DIR = BASE_DIR / "data" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 st.title("📁 회사/농가 자료 관리함")
-st.caption("업로드된 파일은 로컬 디스크(`data/uploads/`)에 저장되어 새로고침해도 유지됩니다.")
+st.caption("업로드된 파일은 클라우드(Supabase Storage)에 저장되어 새로고침해도 유지됩니다.")
 
 tab_upload, tab_manage = st.tabs(["⬆️ 자료 업로드", "🗂️ 보관함"])
 
+# ============================================================
+# 1. 자료 업로드
+# ============================================================
 with tab_upload:
     with st.form("doc_upload_form", clear_on_submit=True):
         uploaded_file = st.file_uploader(
@@ -40,25 +40,33 @@ with tab_upload:
             if uploaded_file is None:
                 st.error("파일을 선택해주세요.")
             else:
+                # 파일명 충돌을 막기 위해 고유 ID를 붙여 저장
                 file_id = str(uuid.uuid4())
                 ext = Path(uploaded_file.name).suffix
                 stored_name = f"{file_id}{ext}"
-                stored_path = UPLOAD_DIR / stored_name
 
-                with open(stored_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+                try:
+                    db.upload_file_to_storage(
+                        stored_name=stored_name,
+                        file_bytes=uploaded_file.getvalue(),
+                        content_type=uploaded_file.type or "application/octet-stream",
+                    )
+                    db.add_document(
+                        filename=uploaded_file.name,
+                        stored_name=stored_name,
+                        category=category,
+                        description=description,
+                        upload_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        size_kb=round(uploaded_file.size / 1024, 1),
+                    )
+                    st.success(f"'{uploaded_file.name}' 업로드 완료!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"업로드에 실패했습니다: {e}")
 
-                db.add_document(
-                    filename=uploaded_file.name,
-                    stored_name=stored_name,
-                    category=category,
-                    description=description,
-                    upload_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    size_kb=round(uploaded_file.size / 1024, 1),
-                )
-                st.success(f"'{uploaded_file.name}' 업로드 완료!")
-                st.rerun()
-
+# ============================================================
+# 2. 보관함 (목록 / 다운로드 / 삭제)
+# ============================================================
 with tab_manage:
     docs = db.get_documents()
     if not docs:
@@ -76,21 +84,22 @@ with tab_manage:
 
         st.divider()
         st.markdown("**개별 파일 다운로드 / 삭제**")
-        for d in sorted(docs_view, key=lambda x: x["upload_date"], reverse=True):
-            file_path = UPLOAD_DIR / d["stored_name"]
+        for d in docs_view:
             colA, colB, colC, colD = st.columns([4, 2, 1.3, 1])
             colA.write(f"📄 **{d['filename']}**  \n_{d['description'] or '설명 없음'}_")
             colB.write(f"[{d['category']}]  \n{d['upload_date']}")
-            if file_path.exists():
-                with open(file_path, "rb") as f:
-                    colC.download_button(
-                        "⬇️", data=f.read(), file_name=d["filename"],
-                        key=f"dl_{d['id']}", use_container_width=True,
-                    )
+
+            file_bytes = db.download_file_from_storage(d["stored_name"])
+            if file_bytes:
+                colC.download_button(
+                    "⬇️", data=file_bytes, file_name=d["filename"],
+                    key=f"dl_{d['id']}", use_container_width=True,
+                )
             else:
                 colC.caption("파일 없음")
+
             if colD.button("🗑️", key=f"del_doc_{d['id']}", use_container_width=True):
                 deleted = db.delete_document(d["id"])
-                if deleted and (UPLOAD_DIR / deleted["stored_name"]).exists():
-                    os.remove(UPLOAD_DIR / deleted["stored_name"])
+                if deleted:
+                    db.remove_file_from_storage(deleted["stored_name"])
                 st.rerun()
