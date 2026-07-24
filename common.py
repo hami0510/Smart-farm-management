@@ -130,31 +130,12 @@ def render_sidebar_settings() -> None:
                 st.success("농장 위치가 저장되었습니다.")
                 st.rerun()
 
-        with st.expander("🔑 OpenWeatherMap API 키", expanded=False):
+       with st.expander("🔑 OpenWeatherMap API 키", expanded=False):
             st.session_state.api_key = st.text_input(
                 "API Key", value=st.session_state.api_key, type="password",
-                placeholder="아직 없다면 비워두세요 (자동으로 가상 데이터 표시)",
+                placeholder="비워두면 등록된 기본 키(Secrets)를 사용합니다",
             )
-            st.caption("키가 없어도 앱은 정상 작동하며, 가상(목업) 날씨 데이터가 대신 표시됩니다.")
-
-            with st.expander("🆕 무료 API 키 발급 방법 (약 5분)"):
-                st.markdown(
-                    """
-**1단계. 회원가입**
-- https://openweathermap.org/api 접속 → **Sign Up** 클릭 → 이메일/비밀번호 입력 (Free 플랜)
-
-**2단계. 이메일 인증**
-- 가입 시 입력한 메일함에서 인증 링크 클릭
-
-**3단계. API 키 확인**
-- 로그인 후 우측 상단 **My API keys** 메뉴 이동 → `Default` 키 복사
-
-**4단계. 앱에 입력**
-- 복사한 키를 위 'API Key' 입력창에 붙여넣기
-
-⚠️ 발급 직후엔 활성화까지 최대 2시간 정도 걸릴 수 있어요. 그동안은 자동으로 목업 데이터가 표시됩니다.
-                    """
-                )
+            st.caption("기본적으로 Secrets에 등록된 키로 실시간 날씨가 표시됩니다. 필요 시 이 칸에 다른 키를 임시로 입력할 수 있습니다.")
 
 
 # ============================================================
