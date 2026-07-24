@@ -207,9 +207,23 @@ def get_public_url(stored_name: str) -> str | None:
     """브라우저에서 바로 열 수 있는 공개 URL을 반환한다 (버킷이 Public일 때)."""
     sb = get_client()
     try:
-        return sb.storage.from_(STORAGE_BUCKET).get_public_url(stored_name)
+        url = sb.storage.from_(STORAGE_BUCKET).get_public_url(stored_name)
+        # 일부 버전에서 URL 끝에 '?'가 붙어 오므로 정리
+        return url.rstrip("?") if url else None
     except Exception:
         return None
+
+
+def get_download_url(stored_name: str, original_filename: str) -> str | None:
+    """
+    클릭 시 원래 파일명으로 '저장'되도록 하는 URL을 반환한다.
+    브라우저가 Supabase CDN에서 직접 내려받으므로 앱 서버를 거치지 않는다
+    (= 이그레스/트래픽 절약).
+    """
+    base = get_public_url(stored_name)
+    if not base:
+        return None
+    return f"{base}?download={quote(original_filename)}"
 
 
 def remove_file_from_storage(stored_name: str) -> None:
