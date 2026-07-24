@@ -101,7 +101,8 @@ def get_farm_logs() -> list[dict]:
     return res.data or []
 
 
-def add_farm_log(log_date, zone, work_type, detail, materials, harvest_kg, sales) -> None:
+def add_farm_log(log_date, zone, work_type, detail, materials, harvest_kg, sales,
+                 photo_name: str | None = None) -> None:
     sb = get_client()
     sb.table("farm_logs").insert({
         "id": str(uuid.uuid4()),
@@ -112,12 +113,19 @@ def add_farm_log(log_date, zone, work_type, detail, materials, harvest_kg, sales
         "materials": materials,
         "harvest_kg": float(harvest_kg),
         "sales": int(sales),
+        "photo_name": photo_name,
     }).execute()
 
 
-def delete_farm_log(log_id: str) -> None:
+def delete_farm_log(log_id: str) -> dict | None:
+    """일지를 삭제하고 삭제된 레코드를 반환한다 (첨부 사진 정리에 사용)."""
     sb = get_client()
+    res = sb.table("farm_logs").select("*").eq("id", log_id).execute()
+    row = res.data[0] if res.data else None
     sb.table("farm_logs").delete().eq("id", log_id).execute()
+    if row and row.get("photo_name"):
+        remove_file_from_storage(row["photo_name"])
+    return row
 
 
 # ============================================================
