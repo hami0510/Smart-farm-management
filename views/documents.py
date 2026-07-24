@@ -3,8 +3,10 @@
 📁 자료 관리함 화면
 --------------------------------------------------
 - 계약서, 영수증, 장비메뉴얼 등 파일 업로드
-- 파일 원본은 Supabase Storage에, 메타데이터는 Supabase DB에 저장
-- 목록 조회, 카테고리 필터, 열기(새 탭)/다운로드/삭제
+- 파일 원본은 Supabase Storage, 메타데이터는 Supabase DB에 저장
+- 열기/저장은 모두 Supabase 공개 URL 링크로 처리한다.
+  → 브라우저가 클릭한 파일만 CDN에서 직접 받으므로,
+    목록을 열 때 모든 파일을 미리 내려받지 않는다 (트래픽 절약).
 """
 
 import uuid
@@ -63,7 +65,7 @@ with tab_upload:
                     st.error(f"업로드에 실패했습니다: {e}")
 
 # ============================================================
-# 2. 보관함 (목록 / 열기 / 다운로드 / 삭제)
+# 2. 보관함 (목록 / 열기 / 저장 / 삭제)
 # ============================================================
 with tab_manage:
     docs = db.get_documents()
@@ -81,35 +83,30 @@ with tab_manage:
             st.dataframe(docs_df, use_container_width=True, hide_index=True)
 
         st.divider()
-        st.markdown("**개별 파일 열기 / 다운로드 / 삭제**")
-        st.caption("🔗 열기: 새 탭에서 미리보기 (PDF·이미지는 바로 열리고, 엑셀·CSV는 자동 다운로드됩니다)")
+        st.markdown("**개별 파일 열기 / 저장 / 삭제**")
+        st.caption("🔗 열기: 새 탭에서 미리보기 · 💾 저장: 원본 파일명으로 내려받기")
 
         for d in docs_view:
             colA, colB, colC, colD, colE = st.columns([3.4, 1.8, 1, 1, 0.9])
             colA.write(f"📄 **{d['filename']}**  \n_{d['description'] or '설명 없음'}_")
             colB.write(f"[{d['category']}]  \n{d['upload_date']}")
 
-            # 새 탭에서 열기 (PC·모바일 공통)
-            public_url = db.get_public_url(d["stored_name"])
-            if public_url:
-                colC.link_button("🔗 열기", public_url, use_container_width=True)
+            # 공개 URL 1회 계산 → 열기/저장 링크에 재사용
+            open_url = db.get_public_url(d["stored_name"])
+            save_url = db.get_download_url(d["stored_name"], d["filename"])
+
+            if open_url:
+                colC.link_button("🔗 열기", open_url, use_container_width=True)
             else:
                 colC.caption("-")
 
-            # 다운로드
-            file_bytes = db.download_file_from_storage(d["stored_name"])
-            if file_bytes:
-                colD.download_button(
-                    "⬇️ 저장", data=file_bytes, file_name=d["filename"],
-                    key=f"dl_{d['id']}", use_container_width=True,
-                )
+            if save_url:
+                colD.link_button("💾 저장", save_url, use_container_width=True)
             else:
-                colD.caption("파일 없음")
+                colD.caption("-")
 
-            # 삭제
             if colE.button("🗑️", key=f"del_doc_{d['id']}", use_container_width=True):
                 deleted = db.delete_document(d["id"])
                 if deleted:
                     db.remove_file_from_storage(deleted["stored_name"])
-                    db.download_file_from_storage.clear()  # 캐시 정리
                 st.rerun()
