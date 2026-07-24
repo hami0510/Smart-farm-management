@@ -2,9 +2,9 @@
 """
 🏠 대시보드 화면
 --------------------------------------------------
-스크롤 없이 한 화면에 들어오도록 세로 여백을 최소화한 컴팩트 레이아웃.
 1) 오늘의 현황 (가로 카드 4개)
 2) 일정 캘린더 (박스형 미니멀 스타일)
+세로 공간을 절약하되, 내부 스크롤이 생기지 않도록 캘린더는 auto 높이 사용.
 """
 
 from datetime import datetime, timedelta
@@ -24,74 +24,71 @@ IMPORTANCE_COLORS = {"높음": "#FF6B6B", "보통": "#FFA726", "낮음": "#66BB6
 
 
 # ============================================================
-# 공통 스타일 (컴팩트 레이아웃)
+# 공통 스타일
 # ============================================================
 st.markdown(
     """
     <style>
-    /* 페이지 상하 여백 축소 */
-    .block-container { padding-top: 2.2rem !important; padding-bottom: 1rem !important; }
-    /* Streamlit 기본 요소 간 간격 축소 */
-    div[data-testid="stVerticalBlock"] { gap: 0.4rem !important; }
+    /* 페이지 하단 여백만 축소 (상단은 툴바 가림 방지를 위해 유지) */
+    .block-container { padding-bottom: 1rem !important; }
 
-    /* 페이지 헤더 */
-    .page-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
-    .page-title { font-size: 1.5em; font-weight: 800; color: #1B5E20; }
-    .page-sub { font-size: 0.78em; color: #888; }
+    /* 헤더 */
+    .page-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .page-title { font-size: 1.55em; font-weight: 800; color: #1B5E20; }
+    .page-sub { font-size: 0.8em; color: #888; }
 
     /* 오늘의 현황 카드 */
     .status-card {
         border-radius: 10px;
-        padding: 8px 12px;
-        min-height: 58px;
+        padding: 9px 12px;
+        min-height: 60px;
         box-shadow: 0 1px 5px rgba(0,0,0,0.06);
     }
     .status-badge {
-        width: 20px; height: 20px; border-radius: 50%;
+        width: 21px; height: 21px; border-radius: 50%;
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 11px; flex-shrink: 0;
     }
-    .status-label { font-size: 0.66em; font-weight: 700; letter-spacing: 0.03em; }
-    .status-value { font-size: 0.84em; color: #2B2B2B; margin-top: 3px; line-height: 1.3; }
+    .status-label { font-size: 0.67em; font-weight: 700; letter-spacing: 0.03em; }
+    .status-value { font-size: 0.85em; color: #2B2B2B; margin-top: 4px; line-height: 1.3; }
 
-    /* 섹션 타이틀 (컴팩트) */
+    /* 섹션 타이틀 */
     .section-title {
-        display: flex; align-items: center; gap: 6px;
-        font-size: 0.95em; font-weight: 700; color: #2E7D32;
-        margin: 8px 0 4px 0;
+        font-size: 0.98em; font-weight: 700; color: #2E7D32;
+        margin: 10px 0 6px 0;
     }
-    .cal-legend { font-size: 0.74em; color: #888; }
+    .cal-legend { font-size: 0.75em; color: #999; font-weight: 400; }
     .cal-legend .dot {
         display: inline-block; width: 8px; height: 8px; border-radius: 50%;
         margin-right: 3px; vertical-align: middle;
     }
 
-    /* ===== 캘린더: 박스형 미니멀 + 컴팩트 ===== */
+    /* ===== 캘린더: 박스형 미니멀 ===== */
     .fc { border: none !important; box-shadow: none !important; }
     .fc-theme-standard td, .fc-theme-standard th { border: none !important; }
     .fc-scrollgrid { border: none !important; }
-    .fc-scroller { overflow: hidden !important; }
 
-    .fc-header-toolbar { margin-bottom: 0.4em !important; }
-    .fc-toolbar-title { font-weight: 700; color: #222; font-size: 1em !important; }
+    .fc-header-toolbar { margin-bottom: 0.5em !important; }
+    .fc-toolbar-title { font-weight: 700; color: #222; font-size: 1.05em !important; }
     .fc-button {
         background: #FFFFFF !important;
         color: #333 !important;
         border: 1px solid #DDD !important;
         border-radius: 8px !important;
         box-shadow: none !important;
-        padding: 3px 10px !important;
+        padding: 4px 12px !important;
         font-size: 0.85em !important;
     }
     .fc-button:hover { background: #F5F5F5 !important; }
+    .fc-button-active { background: #EEE !important; }
 
     .fc-col-header-cell {
         background: transparent !important;
         border: none !important;
         font-weight: 600;
         color: #666;
-        font-size: 0.8em;
-        padding-bottom: 3px !important;
+        font-size: 0.82em;
+        padding-bottom: 4px !important;
     }
     .fc-col-header-cell.fc-day-sun { color: #E53935 !important; }
     .fc-col-header-cell.fc-day-sat { color: #1E88E5 !important; }
@@ -101,12 +98,12 @@ st.markdown(
         border-radius: 8px !important;
         margin: 2px !important;
         background: #FFFFFF;
-        min-height: 42px !important;
+        min-height: 46px !important;
         padding: 2px !important;
     }
     .fc-daygrid-day.fc-day-sun .fc-daygrid-day-number { color: #E53935; }
     .fc-daygrid-day.fc-day-sat .fc-daygrid-day-number { color: #1E88E5; }
-    .fc-daygrid-day-number { font-weight: 500; color: #444; font-size: 0.82em; padding: 2px 5px !important; }
+    .fc-daygrid-day-number { font-weight: 500; color: #444; font-size: 0.84em; padding: 3px 6px !important; }
     .fc-day-other .fc-daygrid-day-frame { background: #FAFAFA; border-color: #F0F0F0 !important; }
 
     .fc-day-today .fc-daygrid-day-frame {
@@ -117,22 +114,21 @@ st.markdown(
     .fc-event {
         border-radius: 5px !important;
         border: none !important;
-        padding: 0px 5px !important;
-        font-size: 0.66em !important;
+        padding: 1px 6px !important;
+        font-size: 0.7em !important;
         font-weight: 500;
-        margin-top: 1px !important;
     }
-    .fc-daygrid-more-link { font-size: 0.66em !important; }
+    .fc-daygrid-more-link { font-size: 0.7em !important; }
 
     @media (max-width: 640px) {
         .page-title { font-size: 1.2em; }
-        .status-card { padding: 7px 9px; min-height: 52px; }
-        .status-badge { width: 17px; height: 17px; font-size: 9px; }
+        .status-card { padding: 7px 9px; min-height: 54px; }
+        .status-badge { width: 18px; height: 18px; font-size: 9px; }
         .status-label { font-size: 0.6em; }
-        .status-value { font-size: 0.75em; }
-        .fc-daygrid-day-frame { min-height: 34px !important; }
-        .fc-daygrid-day-number { font-size: 0.72em; }
-        .fc-event { font-size: 0.6em !important; }
+        .status-value { font-size: 0.76em; }
+        .fc-daygrid-day-frame { min-height: 38px !important; }
+        .fc-daygrid-day-number { font-size: 0.74em; }
+        .fc-event { font-size: 0.62em !important; }
     }
     </style>
     """,
@@ -226,9 +222,9 @@ legend_html = " · ".join(
     f'<span class="dot" style="background:{c};"></span>{lv}' for lv, c in IMPORTANCE_COLORS.items()
 )
 st.markdown(
-    f'<div class="section-title">🗓️ 일정 캘린더'
-    f'<span class="cal-legend" style="margin-left:10px; font-weight:400;">{legend_html}'
-    f' &nbsp;|&nbsp; 날짜 클릭 → 등록 · 일정 클릭 → 삭제</span></div>',
+    f'<div class="section-title">🗓️ 일정 캘린더 '
+    f'<span class="cal-legend">{legend_html} &nbsp;|&nbsp; 날짜 클릭 → 등록 · 일정 클릭 → 삭제</span>'
+    f'</div>',
     unsafe_allow_html=True,
 )
 
@@ -257,9 +253,9 @@ else:
         "initialView": "dayGridMonth",
         "initialDate": st.session_state["cal_initial_date"],
         "locale": "ko",
-        "height": 340,
-        "fixedWeekCount": False,
-        "dayMaxEventRows": 2,
+        "height": "auto",          # 내부 스크롤바가 생기지 않도록 자동 높이
+        "fixedWeekCount": False,   # 빈 주는 그리지 않음
+        "dayMaxEventRows": 2,      # 칸당 이벤트 2개까지, 나머지는 '+더보기'
         "selectable": True,
         "headerToolbar": {"left": "prev,next", "center": "title", "right": "today"},
     }
