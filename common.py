@@ -43,7 +43,12 @@ def init_common_session_state() -> None:
             "name": "서울 (기본값)",
         }
     if "api_key" not in st.session_state:
-        st.session_state.api_key = ""
+        # Streamlit Cloud의 Secrets에 등록된 키가 있으면 자동으로 불러옴
+        # (로컬 실행 시 secrets가 없어도 에러 없이 빈 값으로 처리됨)
+        try:
+            st.session_state.api_key = st.secrets.get("OPENWEATHER_API_KEY", "")
+        except Exception:
+            st.session_state.api_key = ""
 
 
 # ============================================================
