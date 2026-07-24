@@ -2,9 +2,9 @@
 """
 🏠 대시보드 화면
 --------------------------------------------------
-1행: 실시간 날씨 (한 줄, 카드형)
-2행: 일정 캘린더(넓게, 좌) + 오늘의 요약(좁게, 우 상단 카드 3개)
-디자인: 둥근 모서리 + 부드러운 그림자 + 포인트 컬러로 카드형 UI 적용
+좌: 일정 캘린더 (넓게, 상단부터)
+우: 오늘의 현황 패널 (날씨 요약 + 일정/일지/자료 요약을 하나로 통합)
+디자인: 카드형 UI (둥근 모서리 + 그림자 + 포인트 컬러)
 """
 
 from datetime import datetime, timedelta
@@ -27,19 +27,6 @@ except ImportError:
 st.markdown(
     """
     <style>
-    /* 날씨 metric 카드 */
-    div[data-testid="stMetric"] {
-        background: #F6FBF4;
-        border: 1px solid #E4EFDF;
-        border-radius: 16px;
-        padding: 14px 18px 10px 18px;
-        box-shadow: 0 2px 8px rgba(46, 125, 50, 0.06);
-    }
-    div[data-testid="stMetric"] label {
-        color: #6B8F6B !important;
-    }
-
-    /* 캘린더 전체를 카드처럼 */
     .fc {
         border-radius: 18px;
         overflow: hidden;
@@ -58,31 +45,21 @@ st.markdown(
         border-radius: 10px !important;
         box-shadow: none !important;
     }
-    .fc-button:hover {
-        background: #3d8b40 !important;
-    }
-    .fc-button-active {
-        background: #2E7D32 !important;
-    }
+    .fc-button:hover { background: #3d8b40 !important; }
+    .fc-button-active { background: #2E7D32 !important; }
     .fc-col-header-cell {
         background: #F1F8F0;
         font-weight: 600;
         color: #4A6B4A;
     }
-    .fc-daygrid-day-frame {
-        padding: 3px !important;
-    }
-    /* 오늘 날짜: 각진 테두리 대신 둥근 하이라이트 박스 */
+    .fc-daygrid-day-frame { padding: 3px !important; }
     .fc-day-today .fc-daygrid-day-frame {
         background: #FFF4E0 !important;
         border-radius: 12px;
         box-shadow: inset 0 0 0 2px #FFA726;
         margin: 3px;
     }
-    .fc-daygrid-day-number {
-        font-weight: 500;
-        color: #4A5A4A;
-    }
+    .fc-daygrid-day-number { font-weight: 500; color: #4A5A4A; }
     .fc-event {
         border-radius: 8px !important;
         border: none !important;
@@ -91,32 +68,23 @@ st.markdown(
         font-weight: 500;
     }
 
-    /* 오늘의 요약 카드 */
-    .summary-card {
+    .status-card {
         border-radius: 12px;
         padding: 12px 16px;
         margin-bottom: 10px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     }
-    .summary-card .main-text {
-        font-size: 0.94em;
-        color: #333;
-    }
-    .summary-card .sub-text {
-        font-size: 0.78em;
-        color: #8A8A8A;
-        margin-top: 2px;
-    }
+    .status-card .main-text { font-size: 0.94em; color: #333; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-def summary_card(icon: str, accent_color: str, bg_color: str, main_text: str) -> None:
+def status_card(icon: str, accent_color: str, bg_color: str, main_text: str) -> None:
     st.markdown(
         f"""
-        <div class="summary-card" style="background:{bg_color}; border-left:4px solid {accent_color};">
+        <div class="status-card" style="background:{bg_color}; border-left:4px solid {accent_color};">
             <div class="main-text">{icon} {main_text}</div>
         </div>
         """,
@@ -125,7 +93,7 @@ def summary_card(icon: str, accent_color: str, bg_color: str, main_text: str) ->
 
 
 # ============================================================
-# 상단 타이틀 + 날씨
+# 상단 타이틀 + 안전 경고 (강풍/폭우는 눈에 띄게 유지)
 # ============================================================
 st.title("🌾 스마트팜 종합 농가 관리 시스템")
 st.caption(
@@ -144,50 +112,46 @@ if weather["wind_speed"] >= 10:
 if any(k in weather["description"] for k in ["비", "폭우", "소나기"]):
     st.warning(f"🌧️ 강우 예보가 있습니다: {weather['description']} — 배수로를 미리 점검하세요.")
 
-st.markdown("**☀️ 실시간 날씨**")
-if weather["is_mock"]:
-    st.caption("⚠️ " + ("가상 데이터 표시 중" if not weather["error"] else f"연동 실패: {weather['error']}"))
-
-wc1, wc2, wc3, wc4 = st.columns(4)
-wc1.metric("🌡️ 기온", f"{weather['temp']} ℃")
-wc2.metric("💧 습도", f"{weather['humidity']} %")
-wc3.metric("💨 풍속", f"{weather['wind_speed']} m/s")
-wc4.metric("☁️ 날씨", weather["description"])
-
-st.divider()
-
 farm_logs = db.get_farm_logs()
 schedules = db.get_schedules()
 documents = db.get_documents()
 
 # ============================================================
-# 캘린더(좌, 넓게) + 오늘의 요약(우, 좁게 - 카드 3개)
+# 캘린더(좌, 넓게) + 오늘의 현황(우, 좁게 - 날씨+요약 통합)
 # ============================================================
-cal_col, summary_col = st.columns([2.3, 1], gap="large")
+cal_col, status_col = st.columns([2.3, 1], gap="large")
 
-with summary_col:
-    st.markdown("**📌 오늘의 요약**")
+with status_col:
+    st.markdown("**📋 오늘의 현황**")
+
+    mock_note = " · ⚠️ 목업" if weather["is_mock"] else ""
+    status_card(
+        "☀️",
+        "#26A69A",
+        "#EAF7F5",
+        f"{weather['temp']}℃ · 💧{weather['humidity']}% · 💨{weather['wind_speed']}m/s · {weather['description']}{mock_note}",
+    )
 
     upcoming = sorted([s for s in schedules if not s["done"]], key=lambda x: x["start_date"])
     if upcoming:
         s = upcoming[0]
-        summary_card("📅", "#42A5F5", "#EEF6FD", f"{importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
+        status_card("📅", "#42A5F5", "#EEF6FD", f"{importance_badge(s['importance'])} {s['title']} ({calc_dday(s['start_date'])})")
     else:
-        summary_card("📅", "#42A5F5", "#EEF6FD", "예정된 일정이 없습니다.")
+        status_card("📅", "#42A5F5", "#EEF6FD", "예정된 일정이 없습니다.")
 
     recent_logs = sorted(farm_logs, key=lambda x: x["log_date"], reverse=True)
     if recent_logs:
         log = recent_logs[0]
-        summary_card("📝", "#66BB6A", "#EFF8EF", f"{log['log_date']} · [{log['work_type']}] {log['zone']}")
+        status_card("📝", "#66BB6A", "#EFF8EF", f"{log['log_date']} · [{log['work_type']}] {log['zone']}")
     else:
-        summary_card("📝", "#66BB6A", "#EFF8EF", "작성된 영농일지가 없습니다.")
+        status_card("📝", "#66BB6A", "#EFF8EF", "작성된 영농일지가 없습니다.")
 
     recent_docs = sorted(documents, key=lambda x: x["upload_date"], reverse=True)
     if recent_docs:
         d = recent_docs[0]
-        summary_card("📁", "#FFA726", "#FFF6EA", f"{d['filename']} · [{d['category']}]")
+        status_card("📁", "#FFA726", "#FFF6EA", f"{d['filename']} · [{d['category']}]")
     else:
-        summary_card("📁", "#FFA726", "#FFF6EA", "업로드된 자료가 없습니다.")
+        status_card("📁", "#FFA726", "#FFF6EA", "업로드된 자료가 없습니다.")
 
 with cal_col:
     st.markdown("**🗓️ 일정 캘린더**")
@@ -215,7 +179,7 @@ with cal_col:
         calendar_options = {
             "initialView": "dayGridMonth",
             "locale": "ko",
-            "height": 560,
+            "height": 620,
             "selectable": True,
             "headerToolbar": {"left": "prev,next today", "center": "title", "right": ""},
         }
