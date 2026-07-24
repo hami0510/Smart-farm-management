@@ -2,11 +2,12 @@
 """
 common.py
 --------------------------------------------------
-app.py와 pages/*.py 여러 화면에서 공통으로 쓰는 것들을 모아둔 모듈.
+app.py와 views/*.py 여러 화면에서 공통으로 쓰는 것들을 모아둔 모듈.
 - 상수 (작업유형, 카테고리 등)
 - 세션 상태 초기화 (농장 위치, API 키)
 - 날씨 조회 함수 (실시간 + 목업)
-- 사이드바 공통 UI (위치 설정 / API 키 입력)
+- 주소 -> 위경도 변환 (지오코딩)
+- 사이드바 공통 UI (위치 설정)
 - 자잘한 유틸 함수 (D-Day 계산 등)
 """
 
@@ -21,6 +22,7 @@ try:
     GEO_AVAILABLE = True
 except ImportError:
     GEO_AVAILABLE = False
+
 
 # ============================================================
 # 상수
@@ -42,7 +44,7 @@ def init_common_session_state() -> None:
             "name": "서울 (기본값)",
         }
     if "api_key" not in st.session_state:
-        # Streamlit Cloud의 Secrets에 등록된 키가 있으면 자동으로 불러옴
+        # Streamlit Cloud의 Secrets에 등록된 키를 자동으로 불러옴
         # (로컬 실행 시 secrets가 없어도 에러 없이 빈 값으로 처리됨)
         try:
             st.session_state.api_key = st.secrets.get("OPENWEATHER_API_KEY", "")
@@ -90,51 +92,75 @@ def get_weather(lat: float, lon: float, api_key: str) -> dict:
 
 
 # ============================================================
-# 사이드바 공통 UI (위치 설정 + API 키)
+# 주소 -> 위경도 변환 (OpenWeatherMap Geocoding API 사용, 같은 키 재사용)
+# ============================================================
+def geocode_address(address: str, api_key: str) -> dict | None:
+    """
+    주소/지역명을 위경도로 변환한다.
+    도시/군/구 단위 이름에서 가장 잘 동작한다 (예: "전북 김제시", "제주 서귀포시").
+    상세 도로명 주소는 정확도가 떨어질 수 있음.
+    """
+    if not api_key or not address:
+        return None
+    try:
+        url = "http://api.openweathermap.org/geo/1.0/direct"
+        params = {"q": address, "limit": 1, "appid": api_key}
+        resp = requests.get(url, params=params, timeout=6)
+        resp.raise_for_status()
+        results = resp.json()
+        if not results:
+            return None
+        r = results[0]
+        # 지역명이 여러 언어로 섞여 나올 수 있어, 사용자가 입력한 원문 주소를 이름으로 사용
+        return {"lat": r["lat"], "lon": r["lon"], "name": address}
+    except Exception:
+        return None
+
+
+# ============================================================
+# 사이드바 공통 UI (위치 설정)
 # 모든 페이지 상단에서 render_sidebar_settings() 한 번만 호출하면 됨
 # ============================================================
 def render_sidebar_settings() -> None:
     with st.sidebar:
         with st.expander("📍 농장 위치 설정", expanded=False):
+            loc = st.session_state.farm_location
+            st.caption(f"현재 위치: **{loc['name']}** ({loc['lat']:.4f}, {loc['lon']:.4f})")
+
+            # ---- 주소/지역명으로 검색 ----
+            address_in = st.text_input(
+                "주소 또는 지역명 검색",
+                placeholder="예: 전북 김제시, 제주 서귀포시 등",
+            )
+            if st.button("🔍 이 주소로 위치 설정", use_container_width=True):
+                if not st.session_state.api_key:
+                    st.error("주소 검색에는 날씨 API 키가 필요합니다. (관리자에게 문의)")
+                else:
+                    result = geocode_address(address_in, st.session_state.api_key)
+                    if result:
+                        st.session_state.farm_location = result
+                        st.success(f"'{address_in}' 위치로 설정했습니다.")
+                        st.rerun()
+                    else:
+                        st.error("주소를 찾을 수 없습니다. 시/군/구 단위로 다시 입력해보세요.")
+
+            st.divider()
+
+            # ---- 실시간 GPS 자동 감지 ----
             if GEO_AVAILABLE:
-                st.caption("버튼을 누르면 브라우저(PC/모바일)에 위치 권한을 요청합니다.")
+                st.caption("또는 현재 계신 곳의 위치를 자동으로 가져올 수 있습니다.")
                 if st.button("📡 현재 위치로 자동 감지", use_container_width=True):
-                    loc = get_geolocation()
-                    if loc and "coords" in loc:
+                    gloc = get_geolocation()
+                    if gloc and "coords" in gloc:
                         st.session_state.farm_location = {
-                            "lat": loc["coords"]["latitude"],
-                            "lon": loc["coords"]["longitude"],
+                            "lat": gloc["coords"]["latitude"],
+                            "lon": gloc["coords"]["longitude"],
                             "name": "현재 위치(자동 감지)",
                         }
                         st.success("현재 위치를 반영했습니다!")
                         st.rerun()
                     else:
                         st.info("위치 권한을 허용해주세요. 팝업이 안 보이면 다시 눌러주세요.")
-            else:
-                st.warning(
-                    "실시간 위치 자동 감지를 사용하려면 아래 패키지를 설치하세요:\n\n"
-                    "`pip install streamlit-js-eval`"
-                )
-
-            st.caption("또는 직접 좌표를 입력할 수 있습니다.")
-            lat_in = st.number_input(
-                "위도(Latitude)", value=float(st.session_state.farm_location["lat"]), format="%.4f"
-            )
-            lon_in = st.number_input(
-                "경도(Longitude)", value=float(st.session_state.farm_location["lon"]), format="%.4f"
-            )
-            name_in = st.text_input("위치 이름", value=st.session_state.farm_location["name"])
-            if st.button("💾 위치 저장", use_container_width=True):
-                st.session_state.farm_location = {"lat": lat_in, "lon": lon_in, "name": name_in}
-                st.success("농장 위치가 저장되었습니다.")
-                st.rerun()
-
-        with st.expander("🔑 OpenWeatherMap API 키", expanded=False):
-            st.session_state.api_key = st.text_input(
-                "API Key", value=st.session_state.api_key, type="password",
-                placeholder="비워두면 등록된 기본 키(Secrets)를 사용합니다",
-            )
-            st.caption("기본적으로 Secrets에 등록된 키로 실시간 날씨가 표시됩니다. 필요 시 이 칸에 다른 키를 임시로 입력할 수 있습니다.")
 
 
 # ============================================================
