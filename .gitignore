@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# 데이터 (개인 농가 자료 및 DB는 저장소에 올리지 않음)
+data/uploads/
+data/smartfarm.db
+
+# OS
+.DS_Store
